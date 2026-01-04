@@ -1,0 +1,616 @@
+:root {
+    --primary-color: #7c9bc9;
+    --secondary-color: #a8d5ba;
+    --accent-color: #f9c5bd;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --warning-color: #ffc107;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-color: #2d3748;
+    --border-radius: 16px;
+    --box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --transition: all 0.3s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, var(--accent-color) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.signup-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 40px;
+    max-width: 1400px;
+    width: 100%;
+    align-items: start;
+}
+
+.signup-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 40px;
+    transition: var(--transition);
+}
+
+.signup-card:hover {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+.signup-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.5rem;
+    gap: 10px;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+.logo i {
+    font-size: 1.8rem;
+}
+
+.signup-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.signup-header p {
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+.signup-form {
+    margin-bottom: 30px;
+}
+
+.form-section {
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.form-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 30px;
+}
+
+.form-section h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 25px;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-group i {
+    position: absolute;
+    left: 15px;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    z-index: 2;
+}
+
+.input-group input,
+.input-group select {
+    width: 100%;
+    padding: 15px 15px 15px 45px;
+    border: 2px solid #e5e7eb;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: var(--transition);
+    background: var(--bg-color);
+    appearance: none;
+}
+
+/* Improved, smooth & clean select (faculty) styling */
+.input-group select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    padding: 14px 45px 14px 45px;
+    /* vertical padding + space for icon */
+    border: 1px solid #e6e9ef;
+    border-radius: 12px;
+    background-color: #ffffff;
+    /* subtle custom caret (SVG) */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath d='M6 8l4 4 4-4' stroke='%236B7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 18px;
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.2;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.06s ease;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+/* remove default IE dropdown arrow */
+.input-group select::-ms-expand {
+    display: none;
+}
+
+/* hover and focus states for smooth UX */
+.input-group select:hover {
+    border-color: #cfd8e6;
+    transform: translateY(-1px);
+}
+
+.input-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 30px rgba(124, 155, 201, 0.12);
+    transform: translateY(-1px);
+}
+
+/* options styling (limited by browser) */
+.input-group select option {
+    padding: 8px 12px;
+    color: #374151;
+    background: #ffffff;
+}
+
+/* ensure disabled/read-only looks consistent */
+.input-group select:disabled,
+.input-group select[readonly] {
+    background-color: #f8fafc;
+    color: #6b7280;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(124, 155, 201, 0.1);
+}
+
+.input-group input.error,
+.input-group select.error {
+    border-color: var(--error-color);
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.input-group input.success,
+.input-group select.success {
+    border-color: var(--success-color);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+.input-group input:read-only {
+    background-color: #f8fafc;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.toggle-password:hover {
+    color: var(--primary-color);
+}
+
+.input-group select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 15px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 45px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.error-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: var(--error-color);
+    font-weight: 500;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: var(--primary-color);
+}
+
+.checkbox-group label {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+.link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.signup-btn {
+    width: 100%;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.signup-btn:hover {
+    background: #6a8ab5;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(124, 155, 201, 0.3);
+}
+
+.signup-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.signup-footer {
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 20px;
+}
+
+.signup-footer p {
+    color: #6b7280;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+    font-size: 0.9rem;
+}
+
+.back-link:hover {
+    gap: 12px;
+}
+
+.signup-info {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 30px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+}
+
+.signup-info h3 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.signup-info ul {
+    list-style: none;
+    margin-bottom: 30px;
+}
+
+.signup-info li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+}
+
+.signup-info li i {
+    color: var(--primary-color);
+    width: 20px;
+}
+
+.progress-info {
+    background: rgba(124, 155, 201, 0.1);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 25px;
+}
+
+.progress-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    border-radius: 10px;
+    width: 0%;
+    transition: var(--transition);
+}
+
+.progress-info p {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.support-info {
+    background: rgba(168, 213, 186, 0.1);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--secondary-color);
+}
+
+.support-info h4 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.support-info p {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.support-info i {
+    color: var(--secondary-color);
+    width: 16px;
+}
+
+/* Loading animation */
+.loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Password strength indicator */
+.password-strength {
+    margin-top: 5px;
+    height: 4px;
+    border-radius: 2px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.strength-fill {
+    height: 100%;
+    width: 0%;
+    transition: var(--transition);
+}
+
+.strength-weak {
+    background: var(--error-color);
+    width: 33%;
+}
+
+.strength-medium {
+    background: var(--warning-color);
+    width: 66%;
+}
+
+.strength-strong {
+    background: var(--success-color);
+    width: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .signup-container {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .signup-info {
+        order: -1;
+        position: static;
+    }
+}
+
+@media (max-width: 768px) {
+    .signup-card {
+        padding: 30px 20px;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .signup-info {
+        padding: 20px;
+    }
+
+    .signup-header h1 {
+        font-size: 1.7rem;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
+    .signup-card {
+        padding: 20px 15px;
+    }
+
+    .signup-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .form-section h3 {
+        font-size: 1.1rem;
+    }
+}
+
+/* Update responsive design for the new form layout */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    /* Ensure proper spacing for the new license number field */
+    .form-group {
+        margin-bottom: 20px;
+    }
+}
+
+/* Add specific styling for the license number field if needed */
+.input-group input#licenseNo {
+    text-transform: uppercase;
+}
+
+/* Add this to the existing signup.css file if not already present */
+
+/* Responsive adjustments for the new form layout */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    /* Ensure proper spacing for all form fields */
+    .form-group {
+        margin-bottom: 20px;
+    }
+}
+
+/* Styling for email field icon */
+.input-group i.fa-envelope {
+    color: var(--primary-color);
+}
+
+/* Ensure email field styling is consistent */
+.input-group input[type="email"] {
+    text-transform: lowercase;
+}
+
+.input-group input[type="email"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(124, 155, 201, 0.1);
+}

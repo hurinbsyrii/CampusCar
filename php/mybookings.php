@@ -1,0 +1,419 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+// Database connection
+$servername = "127.0.0.1:3301";
+$username = "root";
+$password = "";
+$dbname = "campuscar";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+$user_id = $_SESSION['user_id'];
+
+// Check if user is a driver
+$is_driver = false;
+$driver_check_sql = "SELECT * FROM driver WHERE UserID = ?";
+$stmt = $conn->prepare($driver_check_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    $is_driver = true;
+    $driver = $result->fetch_assoc();
+}
+$stmt->close();
+
+// Get user's bookings (as passenger) - ALL bookings for display (INCLUDING CANCELLED)
+$passenger_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime, 
+                                  u.FullName as DriverName, u.PhoneNumber as DriverPhone, d.CarModel
+                           FROM booking b
+                           JOIN rides r ON b.RideID = r.RideID
+                           JOIN driver dr ON r.DriverID = dr.DriverID
+                           JOIN user u ON dr.UserID = u.UserID
+                           JOIN driver d ON dr.DriverID = d.DriverID
+                           WHERE b.UserID = ?
+                           ORDER BY b.BookingDateTime DESC";
+$stmt = $conn->prepare($passenger_bookings_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$passenger_bookings = $stmt->get_result();
+$stmt->close();
+
+// Count only PENDING bookings for passenger tab (EXCLUDE CANCELLED)
+$passenger_pending_count_sql = "SELECT COUNT(*) as pending_count 
+                               FROM booking 
+                               WHERE UserID = ? AND BookingStatus = 'Pending'";
+$stmt = $conn->prepare($passenger_pending_count_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$passenger_pending_result = $stmt->get_result();
+$passenger_pending_count = $passenger_pending_result->fetch_assoc()['pending_count'];
+$stmt->close();
+
+// Get driver's ride bookings (if user is a driver) - ALL bookings for display
+$driver_bookings = null;
+$driver_pending_count = 0;
+
+if ($is_driver) {
+    $driver_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime,
+                                   u.FullName as PassengerName, u.PhoneNumber as PassengerPhone
+                            FROM booking b
+                            JOIN rides r ON b.RideID = r.RideID
+                            JOIN user u ON b.UserID = u.UserID
+                            WHERE r.DriverID = ?
+                            ORDER BY b.BookingDateTime DESC";
+    $stmt = $conn->prepare($driver_bookings_sql);
+    $stmt->bind_param("i", $driver['DriverID']);
+    $stmt->execute();
+    $driver_bookings = $stmt->get_result();
+    $stmt->close();
+
+    // Count only PENDING bookings for driver tab (EXCLUDE CANCELLED)
+    $driver_pending_count_sql = "SELECT COUNT(*) as pending_count 
+                                FROM booking b
+                                JOIN rides r ON b.RideID = r.RideID
+                                WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+    $stmt = $conn->prepare($driver_pending_count_sql);
+    $stmt->bind_param("i", $driver['DriverID']);
+    $stmt->execute();
+    $driver_pending_result = $stmt->get_result();
+    $driver_pending_count = $driver_pending_result->fetch_assoc()['pending_count'];
+    $stmt->close();
+}
+
+$conn->close();
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bookings - CampusCar</title>
+    <link rel="stylesheet" href="../css/userdashboard.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../css/mybookings.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-avatar">
+                    <i class="fa-solid fa-user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <h3><?php echo $_SESSION['full_name'] ?? 'User'; ?></h3>
+                    <span class="user-role"><?php echo $is_driver ? 'Driver' : 'Passenger'; ?></span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item">
+                        <a href="userdashboard.php" class="nav-link" data-section="findride" data-count="<?php echo $rides_count ?? 0; ?>">
+                            <i class="fa-solid fa-gauge"></i>
+                            <span>Find Ride</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="userprofile.php" class="nav-link" data-section="profile" data-count="0">
+                            <i class="fa-solid fa-user"></i>
+                            <span>My Profile</span>
+                        </a>
+                    </li>
+                    <?php if ($is_driver): ?>
+                        <li class="nav-item">
+                            <a href="driverdashboard.php" class="nav-link" data-section="driver" data-count="0">
+                                <i class="fa-solid fa-car-side"></i>
+                                <span>Driver Dashboard</span>
+                            </a>
+                        </li>
+                    <?php endif; ?>
+                    <li class="nav-item active">
+                        <a href="mybookings.php" class="nav-link" data-section="bookings" data-count="<?php echo ($passenger_bookings->num_rows ?? 0) + ($driver_bookings ? $driver_bookings->num_rows : 0); ?>">
+                            <i class="fa-solid fa-ticket"></i>
+                            <span>My Bookings</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="todaysride.php" class="nav-link" data-section="todays" data-count="0">
+                            <i class="fa-solid fa-calendar-day"></i>
+                            <span>Today's Rides</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="logout.php" class="nav-link logout">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            <span>Logout</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="dashboard-header">
+                <div class="header-content">
+                    <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="logo">
+                        <i class="fa-solid fa-car-side"></i>
+                        <span>CampusCar</span>
+                    </div>
+                    <div class="header-actions">
+                        <div class="user-welcome">
+                            <i class="fa-solid fa-user-circle"></i>
+                            <span>Welcome, <?php echo $_SESSION['full_name'] ?? 'User'; ?></span>
+                        </div>
+                        <a href="userprofile.php" class="profile-btn">
+                            <i class="fa-solid fa-user"></i>
+                            My Profile
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="dashboard-main">
+                <div class="bookings-container">
+                    <!-- Page Header -->
+                    <div class="page-header">
+                        <h1><i class="fa-solid fa-ticket"></i> My Bookings</h1>
+                        <p>Manage your ride bookings and passenger requests</p>
+                        <p class="info-note">
+                            <i class="fa-solid fa-info-circle"></i>
+                            Cancelled bookings will not appear in Today's Rides
+                        </p>
+                    </div>
+
+                    <!-- Booking Tabs -->
+                    <div class="booking-tabs">
+                        <button class="tab-btn active" data-tab="passenger-bookings">
+                            <i class="fa-solid fa-user"></i>
+                            My Bookings
+                            <span class="tab-count"><?php echo $passenger_pending_count; ?></span>
+                        </button>
+                        <?php if ($is_driver): ?>
+                            <button class="tab-btn" data-tab="driver-bookings">
+                                <i class="fa-solid fa-id-card"></i>
+                                Passenger Requests
+                                <span class="tab-count"><?php echo $driver_pending_count; ?></span>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Passenger Bookings Tab -->
+                    <div class="tab-content active" id="passenger-bookings">
+                        <div class="bookings-header">
+                            <h2>My Ride Bookings</h2>
+                            <p>All your booked rides in one place</p>
+                        </div>
+
+                        <?php if ($passenger_bookings->num_rows > 0): ?>
+                            <div class="bookings-grid">
+                                <?php while ($booking = $passenger_bookings->fetch_assoc()): ?>
+                                    <div class="booking-card" data-booking-id="<?php echo $booking['BookingID']; ?>">
+                                        <div class="booking-badge">
+                                            <span class="status-badge status-<?php echo strtolower($booking['BookingStatus']); ?>">
+                                                <?php echo $booking['BookingStatus']; ?>
+                                            </span>
+                                        </div>
+                                        <div class="booking-content">
+                                            <div class="route-info">
+                                                <h3>
+                                                    <i class="fa-solid fa-route"></i>
+                                                    <?php echo htmlspecialchars($booking['FromLocation']); ?>
+                                                    <i class="fa-solid fa-arrow-right"></i>
+                                                    <?php echo htmlspecialchars($booking['ToLocation']); ?>
+                                                </h3>
+                                            </div>
+                                            <div class="booking-details">
+                                                <div class="detail-group">
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-calendar"></i>
+                                                        <span><?php echo date('M j, Y', strtotime($booking['RideDate'])); ?></span>
+                                                    </div>
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-clock"></i>
+                                                        <span><?php echo date('g:i A', strtotime($booking['DepartureTime'])); ?></span>
+                                                    </div>
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-user-friends"></i>
+                                                        <span><?php echo $booking['NoOfSeats']; ?> seats</span>
+                                                    </div>
+                                                </div>
+                                                <div class="detail-group">
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-user-tie"></i>
+                                                        <span><?php echo htmlspecialchars($booking['DriverName']); ?></span>
+                                                    </div>
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-car"></i>
+                                                        <span><?php echo htmlspecialchars($booking['CarModel']); ?></span>
+                                                    </div>
+                                                    <div class="detail-item">
+                                                        <i class="fa-solid fa-phone"></i>
+                                                        <span><?php echo htmlspecialchars($booking['DriverPhone']); ?></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="booking-footer">
+                                                <div class="price-info">
+                                                    <span class="total-price">RM<?php echo $booking['TotalPrice']; ?></span>
+                                                    <span class="price-label">Total Amount</span>
+                                                </div>
+                                                <div class="booking-actions">
+                                                    <?php if ($booking['BookingStatus'] == 'Pending'): ?>
+                                                        <button class="btn btn-outline btn-cancel" onclick="cancelBooking(<?php echo $booking['BookingID']; ?>)">
+                                                            <i class="fa-solid fa-times"></i>
+                                                            Cancel
+                                                        </button>
+                                                    <?php endif; ?>
+                                                    <button class="btn btn-primary" onclick="contactDriver('<?php echo htmlspecialchars($booking['DriverPhone']); ?>')">
+                                                        <i class="fa-solid fa-phone"></i>
+                                                        Contact Driver
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <i class="fa-solid fa-ticket"></i>
+                                </div>
+                                <h3>No Bookings Yet</h3>
+                                <p>You haven't made any ride bookings yet. Start by exploring available rides!</p>
+                                <a href="userdashboard.php" class="btn btn-primary">
+                                    <i class="fa-solid fa-car"></i>
+                                    Find Rides
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Driver Bookings Tab (Only for drivers) -->
+                    <?php if ($is_driver): ?>
+                        <div class="tab-content" id="driver-bookings">
+                            <div class="bookings-header">
+                                <h2>Passenger Requests</h2>
+                                <p>Manage booking requests for your rides</p>
+                            </div>
+
+                            <?php if ($driver_bookings->num_rows > 0): ?>
+                                <div class="bookings-grid">
+                                    <?php while ($booking = $driver_bookings->fetch_assoc()): ?>
+                                        <div class="booking-card driver-booking" data-booking-id="<?php echo $booking['BookingID']; ?>">
+                                            <div class="booking-badge">
+                                                <span class="status-badge status-<?php echo strtolower($booking['BookingStatus']); ?>">
+                                                    <?php echo $booking['BookingStatus']; ?>
+                                                </span>
+                                            </div>
+                                            <div class="booking-content">
+                                                <div class="route-info">
+                                                    <h3>
+                                                        <i class="fa-solid fa-route"></i>
+                                                        <?php echo htmlspecialchars($booking['FromLocation']); ?>
+                                                        <i class="fa-solid fa-arrow-right"></i>
+                                                        <?php echo htmlspecialchars($booking['ToLocation']); ?>
+                                                    </h3>
+                                                </div>
+                                                <div class="booking-details">
+                                                    <div class="detail-group">
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-calendar"></i>
+                                                            <span><?php echo date('M j, Y', strtotime($booking['RideDate'])); ?></span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-clock"></i>
+                                                            <span><?php echo date('g:i A', strtotime($booking['DepartureTime'])); ?></span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-user-friends"></i>
+                                                            <span><?php echo $booking['NoOfSeats']; ?> seats</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="detail-group">
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-user"></i>
+                                                            <span><?php echo htmlspecialchars($booking['PassengerName']); ?></span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-phone"></i>
+                                                            <span><?php echo htmlspecialchars($booking['PassengerPhone']); ?></span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <i class="fa-solid fa-calendar-check"></i>
+                                                            <span>Booked: <?php echo date('M j, g:i A', strtotime($booking['BookingDateTime'])); ?></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="booking-footer">
+                                                    <div class="price-info">
+                                                        <span class="total-price">RM<?php echo $booking['TotalPrice']; ?></span>
+                                                        <span class="price-label">Total Amount</span>
+                                                    </div>
+                                                    <div class="booking-actions">
+                                                        <?php if ($booking['BookingStatus'] == 'Pending'): ?>
+                                                            <button class="btn btn-success" onclick="updateBookingStatus(<?php echo $booking['BookingID']; ?>, 'Confirmed')">
+                                                                <i class="fa-solid fa-check"></i>
+                                                                Confirm
+                                                            </button>
+                                                            <button class="btn btn-danger" onclick="updateBookingStatus(<?php echo $booking['BookingID']; ?>, 'Cancelled')">
+                                                                <i class="fa-solid fa-times"></i>
+                                                                Reject
+                                                            </button>
+                                                        <?php endif; ?>
+                                                        <button class="btn btn-outline" onclick="contactPassenger('<?php echo htmlspecialchars($booking['PassengerPhone']); ?>')">
+                                                            <i class="fa-solid fa-phone"></i>
+                                                            Contact
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-state">
+                                    <div class="empty-icon">
+                                        <i class="fa-solid fa-users"></i>
+                                    </div>
+                                    <h3>No Passenger Requests</h3>
+                                    <p>You don't have any booking requests for your rides yet.</p>
+                                    <a href="rideoffer.php" class="btn btn-primary">
+                                        <i class="fa-solid fa-plus"></i>
+                                        Offer a Ride
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="../js/userdashboard.js?v=<?php echo time(); ?>"></script>
+    <script src="../js/mybookings.js?v=<?php echo time(); ?>"></script>
+</body>
+
+</html>

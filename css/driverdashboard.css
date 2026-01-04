@@ -1,0 +1,356 @@
+@import url("./admindashboard.css");
+
+/* Driver-specific overrides based on admin theme */
+:root {
+    --driver-accent: #6fcf97;
+    --driver-primary: #6a9bd6;
+}
+
+/* Ensure legacy .sidebar and .main-content map to admin classes */
+.sidebar {
+    display: none;
+}
+
+/* hide old sidebar if admin-sidebar is used */
+.main-content {
+    display: none;
+}
+
+/* Use admin layout classes if present */
+.admin-sidebar {
+    /* subtle driver tint */
+}
+
+.admin-sidebar .sidebar-header {
+    background: linear-gradient(135deg, var(--driver-primary), #b3e6c9);
+}
+
+.admin-badge {
+    background: var(--driver-accent);
+}
+
+/* Stat icons adapted for driver */
+.stat-icon.drivers {
+    background: linear-gradient(135deg, var(--driver-accent), #9ee6c3);
+}
+
+.stat-icon.rides {
+    background: linear-gradient(135deg, #f9c5bd, #fcd9d2);
+}
+
+/* Slight adjustments to cards for driver UI */
+.stat-card {
+    border-radius: 12px;
+}
+
+.chart-card,
+.summary-card {
+    border-radius: 12px;
+}
+
+/* Header small tweaks */
+.admin-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+/* Modal tweaks */
+.modal-content {
+    max-width: 720px;
+}
+
+/* Responsive: keep admin responsive behavior */
+@media (max-width: 768px) {
+    .admin-sidebar {
+        width: 100%;
+        position: static;
+    }
+
+    .admin-main {
+        margin-left: 0;
+    }
+}
+
+/* Keep any previous driver specific styles (fallbacks) */
+.create-ride-btn {
+    display: none;
+}
+
+/* admin sidebar has create button */
+
+/* Back button to return to user dashboard */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    color: #34495e;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    font-weight: 600;
+    margin-right: 12px;
+}
+
+.back-btn i {
+    font-size: 14px;
+}
+
+.back-btn:hover {
+    background: #f5f7fa;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .back-btn {
+        margin-bottom: 8px;
+        display: inline-flex;
+    }
+}
+
+/* Payment Proof Styles */
+.view-proof-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: var(--transition);
+}
+
+.view-proof-btn:hover {
+    background: #6a8ab5;
+    transform: translateY(-1px);
+}
+
+.no-proof {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Modal for Payment Proof */
+.proof-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    animation: fadeIn 0.3s ease;
+}
+
+.proof-modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 80%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.3s ease;
+}
+
+.proof-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.proof-modal-header h3 {
+    color: var(--text-color);
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.close-proof-modal {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    transition: var(--transition);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-proof-modal:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--error-color);
+}
+
+.proof-details {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+}
+
+.proof-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.proof-detail-item:last-child {
+    border-bottom: none;
+}
+
+.proof-detail-label {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.proof-detail-value {
+    color: #6b7280;
+}
+
+.proof-image-container {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 2px dashed #d1d5db;
+}
+
+.proof-image {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+    display: block;
+}
+
+.proof-message {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff3cd;
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+}
+
+.proof-message p {
+    color: #856404;
+    margin: 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.proof-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.download-proof-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.download-proof-btn:hover {
+    background: #6a8ab5;
+    transform: translateY(-1px);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .proof-modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+
+    .proof-actions {
+        flex-direction: column;
+    }
+
+    .download-proof-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Simple green "new" dot for sidebar items */
+.new-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-left: 8px;
+    border-radius: 50%;
+    background: #28a745;
+    transform: scale(0);
+    transition: transform 0.18s ease, opacity 0.18s ease;
+    opacity: 0;
+    vertical-align: middle;
+}
+
+/* visible state */
+.new-dot.visible {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* keep label spacing consistent */
+.sidebar-nav .nav-link span {
+    margin-left: 8px;
+    display: inline-block;
+}

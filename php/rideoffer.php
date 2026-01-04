@@ -171,6 +171,63 @@ if (!$is_driver) {
             background: #cce5ff;
             color: #004085;
         }
+
+        .autocomplete-container {
+    position: relative;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 8px 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: #f5f5f5;
+}
+
+.autocomplete-item i {
+    margin-right: 10px;
+    color: #3498db;
+    width: 20px;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.3s;
+}
+
+.btn-small:hover {
+    background: var(--primary-color-dark);
+}
     </style>
 </head>
 
@@ -256,30 +313,49 @@ if (!$is_driver) {
                     <h3><i class="fa-solid fa-route"></i> Route Information</h3>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="fromLocation">
-                                <i class="fa-solid fa-location-dot"></i>
-                                From Location *
-                            </label>
-                            <div class="input-group">
-                                <input type="text" id="fromLocation" name="fromLocation" required
-                                    placeholder="e.g., KL Sentral, Main Gate, Library">
-                            </div>
-                            <small class="help-text">Starting point of your ride</small>
-                            <small class="error-text" id="fromLocationError"></small>
-                        </div>
+    <label for="fromLocation">
+        <i class="fa-solid fa-location-dot"></i>
+        From Location *
+    </label>
+    <div class="input-group autocomplete-container">
+        <input type="text" id="fromLocation" name="fromLocation" required
+               placeholder="e.g., Mahkota Parade, KL Sentral, Library"
+               class="location-autocomplete">
+        <input type="hidden" id="fromLocationLat" name="fromLocationLat">
+        <input type="hidden" id="fromLocationLng" name="fromLocationLng">
+        <div class="autocomplete-dropdown" id="fromAutocompleteDropdown"></div>
+    </div>
+    <small class="help-text">Starting point of your ride</small>
+    <small class="error-text" id="fromLocationError"></small>
+</div>
 
-                        <div class="form-group">
-                            <label for="toLocation">
-                                <i class="fa-solid fa-location-dot"></i>
-                                To Location *
-                            </label>
-                            <div class="input-group">
-                                <input type="text" id="toLocation" name="toLocation" required
-                                    placeholder="e.g., University Campus, Faculty Building">
-                            </div>
-                            <small class="help-text">Destination of your ride</small>
-                            <small class="error-text" id="toLocationError"></small>
-                        </div>
+<div class="form-group">
+    <label for="toLocation">
+        <i class="fa-solid fa-location-dot"></i>
+        To Location *
+    </label>
+    <div class="input-group autocomplete-container">
+        <input type="text" id="toLocation" name="toLocation" required
+               placeholder="e.g., University Campus, Faculty Building"
+               class="location-autocomplete">
+        <input type="hidden" id="toLocationLat" name="toLocationLat">
+        <input type="hidden" id="toLocationLng" name="toLocationLng">
+        <div class="autocomplete-dropdown" id="toAutocompleteDropdown"></div>
+    </div>
+    <small class="help-text">Destination of your ride</small>
+    <small class="error-text" id="toLocationError"></small>
+</div>
+
+<!-- Map Preview Container -->
+<div id="mapPreviewContainer" style="display: none; margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h4><i class="fa-solid fa-map"></i> Route Preview</h4>
+        <button type="button" id="confirmRoute" class="btn-small" style="display: none;">
+            <i class="fa-solid fa-check"></i> Confirm Route
+        </button>
+    </div>
+    <div id="map" style="height: 300px; border-radius: 8px;"></div>
+</div>
                     </div>
                 </div>
 

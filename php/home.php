@@ -198,7 +198,10 @@ setcookie('theme', 'light', time() + (365 * 24 * 60 * 60), "/");
         <div class="container">
             <h2>Ready to Start Your Journey?</h2>
             <p>Join thousands of students who trust CampusCar for their daily commute.</p>
-            <button class="cta-btn">Get Started Today</button>
+            <!-- <button class="cta-btn">Get Started Today</button> -->
+            <button class="cta-btn" onclick="window.location.href='verify.php';">
+                <i class="fa-solid fa-user-plus"></i> Get Started Today
+            </button>
         </div>
     </section>
 

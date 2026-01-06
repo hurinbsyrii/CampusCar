@@ -107,6 +107,21 @@ if (!empty($ride_ids)) {
     $data['payments'] = [];
 }
 
+// Get reviews for driver's rides
+$reviews_query = $conn->prepare("
+    SELECT rv.*, u.FullName as PassengerName, u.Gender as PassengerGender, 
+           bk.BookingDateTime, rs.FromLocation, rs.ToLocation
+    FROM reviews rv
+    JOIN booking bk ON rv.BookingID = bk.BookingID
+    JOIN user u ON rv.UserID = u.UserID
+    JOIN rides rs ON rv.RideID = rs.RideID
+    WHERE rv.DriverID = ?
+    ORDER BY rv.CreatedAt DESC
+");
+$reviews_query->bind_param('i', $driver_id);
+$reviews_query->execute();
+$data['reviews'] = $reviews_query->get_result()->fetch_all(MYSQLI_ASSOC);
+
 $stmt->close();
 ?>
 
@@ -157,6 +172,9 @@ $stmt->close();
                     </li>
                     <li class="nav-item" data-target="notifications" data-count="<?php echo count($data['notifications']); ?>">
                         <a href="#" class="nav-link"><i class="fa-solid fa-bell"></i><span>Notifications</span><span class="new-dot" aria-hidden="true"></span></a>
+                    </li>
+                    <li class="nav-item" data-target="reviews" data-count="<?php echo count($data['reviews']); ?>">
+                        <a href="#" class="nav-link"><i class="fa-solid fa-star"></i><span>Reviews</span><span class="new-dot" aria-hidden="true"></span></a>
                     </li>
                     <li class="nav-item" data-target="profile">
                         <a href="#" class="nav-link"><i class="fa-solid fa-user"></i><span>My Profile</span></a>
@@ -386,7 +404,6 @@ $stmt->close();
                 </section>
 
                 <!-- Payments Section -->
-                <!-- Payments Section -->
                 <section id="payments" class="dashboard-section">
                     <h2><i class="fa-solid fa-credit-card"></i> Payments (<?php echo count($data['payments']); ?>)</h2>
                     <div class="table-container">
@@ -431,6 +448,134 @@ $stmt->close();
                             </tbody>
                         </table>
                     </div>
+                </section>
+
+                <!-- Reviews Section -->
+                <section id="reviews" class="dashboard-section">
+                    <h2><i class="fa-solid fa-star"></i> Passenger Reviews (<?php echo count($data['reviews']); ?>)</h2>
+
+                    <?php if (empty($data['reviews'])): ?>
+                        <div class="no-data-message">
+                            <i class="fa-solid fa-comment-slash"></i>
+                            <p>No reviews yet. Reviews will appear here after passengers rate their rides.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="reviews-summary">
+                            <div class="summary-card">
+                                <h3><i class="fa-solid fa-chart-bar"></i> Overall Rating</h3>
+                                <div class="overall-rating">
+                                    <?php
+                                    $totalRating = 0;
+                                    $totalReviews = count($data['reviews']);
+                                    foreach ($data['reviews'] as $review) {
+                                        $totalRating += $review['Rating'];
+                                    }
+                                    $averageRating = $totalReviews > 0 ? $totalRating / $totalReviews : 0;
+                                    ?>
+                                    <div class="rating-stars">
+                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                            <i class="fa-solid fa-star <?php echo $i <= round($averageRating) ? 'filled' : 'empty'; ?>"></i>
+                                        <?php endfor; ?>
+                                    </div>
+                                    <div class="rating-number">
+                                        <span class="average"><?php echo number_format($averageRating, 1); ?></span>
+                                        <span class="total">/5 from <?php echo $totalReviews; ?> reviews</span>
+                                    </div>
+                                </div>
+
+                                <!-- Rating Distribution -->
+                                <div class="rating-distribution">
+                                    <h4><i class="fa-solid fa-chart-pie"></i> Rating Distribution</h4>
+                                    <div class="distribution-bars">
+                                        <?php
+                                        $ratingCounts = array_fill(1, 5, 0);
+                                        foreach ($data['reviews'] as $review) {
+                                            $ratingCounts[$review['Rating']]++;
+                                        }
+
+                                        for ($i = 5; $i >= 1; $i--):
+                                            $percentage = $totalReviews > 0 ? ($ratingCounts[$i] / $totalReviews) * 100 : 0;
+                                        ?>
+                                            <div class="distribution-row">
+                                                <span class="stars-label"><?php echo str_repeat('★', $i); ?></span>
+                                                <div class="bar-container">
+                                                    <div class="bar-fill" style="width: <?php echo $percentage; ?>%"></div>
+                                                </div>
+                                                <span class="count-label"><?php echo $ratingCounts[$i]; ?></span>
+                                            </div>
+                                        <?php endfor; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reviews List -->
+                        <div class="reviews-list">
+                            <?php foreach ($data['reviews'] as $review): ?>
+                                <div class="review-card">
+                                    <div class="review-header">
+                                        <div class="reviewer-info">
+                                            <div class="reviewer-avatar">
+                                                <i class="fa-solid fa-user"></i>
+                                            </div>
+                                            <div class="reviewer-details">
+                                                <h4><?php echo htmlspecialchars($review['PassengerName']); ?></h4>
+                                                <div class="reviewer-meta">
+                                                    <span class="reviewer-gender">
+                                                        <i class="fa-solid fa-<?php echo strtolower($review['PassengerGender']) === 'female' ? 'venus' : 'mars'; ?>"></i>
+                                                        <?php echo htmlspecialchars($review['PassengerGender']); ?>
+                                                    </span>
+                                                    <span class="review-date">
+                                                        <i class="fa-solid fa-calendar"></i>
+                                                        <?php echo date('M d, Y', strtotime($review['CreatedAt'])); ?>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="review-rating">
+                                            <div class="stars">
+                                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                    <i class="fa-solid fa-star <?php echo $i <= $review['Rating'] ? 'filled' : 'empty'; ?>"></i>
+                                                <?php endfor; ?>
+                                            </div>
+                                            <span class="rating-number"><?php echo $review['Rating']; ?>/5</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="review-content">
+                                        <?php if (!empty($review['Comment'])): ?>
+                                            <p class="review-comment"><?php echo nl2br(htmlspecialchars($review['Comment'])); ?></p>
+                                        <?php else: ?>
+                                            <p class="no-comment">No comment provided</p>
+                                        <?php endif; ?>
+
+                                        <div class="review-ride-info">
+                                            <div class="ride-details">
+                                                <span class="ride-label">Ride:</span>
+                                                <span class="ride-info"><?php echo htmlspecialchars($review['FromLocation']); ?> → <?php echo htmlspecialchars($review['ToLocation']); ?></span>
+                                            </div>
+                                            <div class="booking-details">
+                                                <span class="booking-label">Booking Date:</span>
+                                                <span class="booking-info"><?php echo date('M d, Y H:i', strtotime($review['BookingDateTime'])); ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="review-footer">
+                                        <div class="review-id">
+                                            <span class="label">Review ID:</span>
+                                            <span class="value">#<?php echo $review['ReviewID']; ?></span>
+                                        </div>
+                                        <!-- <div class="review-actions">
+                            <button class="reply-btn" onclick="replyToReview(<?php echo $review['ReviewID']; ?>)">
+                                <i class="fa-solid fa-reply"></i> Reply
+                            </button>
+                        </div> -->
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </section>
 
                 <!-- Notifications Section -->
@@ -941,6 +1086,11 @@ $stmt->close();
             showToast('Proof download started', 'success');
         }
 
+        function replyToReview(reviewId) {
+            // Implementation for replying to reviews
+            alert('Reply functionality would go here for Review ID: ' + reviewId);
+        }
+
         // Toast notification function
         function showToast(message, type = 'info') {
             // Remove existing toast if any
@@ -1050,7 +1200,8 @@ $stmt->close();
 
         // simple green-dot logic: shows when count > last-seen, hides on click
         document.addEventListener('DOMContentLoaded', function() {
-            const sections = ['rides', 'bookings', 'earnings', 'payments', 'notifications'];
+            // Update this in the JavaScript section
+            const sections = ['rides', 'bookings', 'earnings', 'payments', 'reviews', 'notifications'];
             sections.forEach(sec => {
                 const li = document.querySelector(`.nav-item[data-target="${sec}"]`);
                 if (!li) return;

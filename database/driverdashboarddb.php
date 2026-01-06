@@ -37,6 +37,10 @@ switch ($action) {
     case 'notificationCount':
         getNotificationCount($driverUserId);
         break;
+    case 'reviews':
+        $reviews = getDriverReviews($driverId);
+        echo json_encode(['success' => true, 'reviews' => $reviews]);
+        break;
 
     case 'profile':
         getProfileData($driverUserId, $driverId);
@@ -705,6 +709,53 @@ function createRideNotification($driverId, $rideId)
             $stmt->execute();
         }
     }
+}
+
+function getDriverReviews($driverId)
+{
+    global $conn;
+
+    $query = "
+        SELECT 
+            rv.ReviewID,
+            rv.Rating,
+            rv.Comment,
+            rv.CreatedAt,
+            u.FullName as PassengerName,
+            u.Gender as PassengerGender,
+            b.BookingDateTime,
+            rs.FromLocation,
+            rs.ToLocation
+        FROM reviews rv
+        JOIN booking b ON rv.BookingID = b.BookingID
+        JOIN user u ON rv.UserID = u.UserID
+        JOIN rides rs ON rv.RideID = rs.RideID
+        WHERE rv.DriverID = ?
+        ORDER BY rv.CreatedAt DESC
+    ";
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $driverId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $reviews = [];
+    while ($row = $result->fetch_assoc()) {
+        $reviews[] = [
+            'id' => $row['ReviewID'],
+            'rating' => $row['Rating'],
+            'comment' => $row['Comment'],
+            'date' => timeAgo($row['CreatedAt']),
+            'fullDate' => date('Y-m-d H:i:s', strtotime($row['CreatedAt'])),
+            'passengerName' => $row['PassengerName'],
+            'passengerGender' => $row['PassengerGender'],
+            'bookingDate' => date('Y-m-d H:i', strtotime($row['BookingDateTime'])),
+            'fromLocation' => $row['FromLocation'],
+            'toLocation' => $row['ToLocation']
+        ];
+    }
+
+    return $reviews;
 }
 
 function markAllNotificationsAsRead($userId)

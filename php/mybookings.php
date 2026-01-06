@@ -33,13 +33,18 @@ if ($result->num_rows > 0) {
 $stmt->close();
 
 // Get user's bookings (as passenger) - ALL bookings for display (INCLUDING CANCELLED)
+// MODIFIED: Added PaymentStatus and ReviewID
 $passenger_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime, 
-                                  u.FullName as DriverName, u.PhoneNumber as DriverPhone, d.CarModel
+                                  u.FullName as DriverName, u.PhoneNumber as DriverPhone, d.CarModel,
+                                  p.PaymentStatus,
+                                  rev.ReviewID
                            FROM booking b
                            JOIN rides r ON b.RideID = r.RideID
                            JOIN driver dr ON r.DriverID = dr.DriverID
                            JOIN user u ON dr.UserID = u.UserID
                            JOIN driver d ON dr.DriverID = d.DriverID
+                           LEFT JOIN payments p ON b.BookingID = p.BookingID AND p.UserID = b.UserID
+                           LEFT JOIN reviews rev ON b.BookingID = rev.BookingID
                            WHERE b.UserID = ?
                            ORDER BY b.BookingDateTime DESC";
 $stmt = $conn->prepare($passenger_bookings_sql);
@@ -65,10 +70,12 @@ $driver_pending_count = 0;
 
 if ($is_driver) {
     $driver_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime,
-                                   u.FullName as PassengerName, u.PhoneNumber as PassengerPhone
+                                   u.FullName as PassengerName, u.PhoneNumber as PassengerPhone,
+                                   p.PaymentStatus
                             FROM booking b
                             JOIN rides r ON b.RideID = r.RideID
                             JOIN user u ON b.UserID = u.UserID
+                            LEFT JOIN payments p ON b.BookingID = p.BookingID AND p.UserID = b.UserID
                             WHERE r.DriverID = ?
                             ORDER BY b.BookingDateTime DESC";
     $stmt = $conn->prepare($driver_bookings_sql);
@@ -227,12 +234,23 @@ $conn->close();
 
                         <?php if ($passenger_bookings->num_rows > 0): ?>
                             <div class="bookings-grid">
-                                <?php while ($booking = $passenger_bookings->fetch_assoc()): ?>
+                                <?php while ($booking = $passenger_bookings->fetch_assoc()): 
+                                    // Determine status class
+                                    $status_class = 'status-' . strtolower($booking['BookingStatus']);
+                                    $payment_status = $booking['PaymentStatus'] ?? null;
+                                    $has_review = !empty($booking['ReviewID']);
+                                ?>
                                     <div class="booking-card" data-booking-id="<?php echo $booking['BookingID']; ?>">
                                         <div class="booking-badge">
-                                            <span class="status-badge status-<?php echo strtolower($booking['BookingStatus']); ?>">
+                                            <span class="status-badge <?php echo $status_class; ?>">
                                                 <?php echo $booking['BookingStatus']; ?>
                                             </span>
+                                            <?php if ($booking['BookingStatus'] == 'Paid' && $payment_status == 'paid' && $has_review): ?>
+                                                <span class="status-reviewed">
+                                                    <i class="fa-solid fa-star"></i>
+                                                    Reviewed
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="booking-content">
                                             <div class="route-info">
@@ -285,6 +303,14 @@ $conn->close();
                                                             Cancel
                                                         </button>
                                                     <?php endif; ?>
+                                                    
+                                                    <?php if ($booking['BookingStatus'] == 'Paid' && $payment_status == 'paid' && !$has_review): ?>
+                                                        <a href="review.php?booking_id=<?php echo $booking['BookingID']; ?>" class="btn btn-success">
+                                                            <i class="fa-solid fa-star"></i>
+                                                            Leave Review
+                                                        </a>
+                                                    <?php endif; ?>
+                                                    
                                                     <button class="btn btn-primary" onclick="contactDriver('<?php echo htmlspecialchars($booking['DriverPhone']); ?>')">
                                                         <i class="fa-solid fa-phone"></i>
                                                         Contact Driver
@@ -320,10 +346,12 @@ $conn->close();
 
                             <?php if ($driver_bookings->num_rows > 0): ?>
                                 <div class="bookings-grid">
-                                    <?php while ($booking = $driver_bookings->fetch_assoc()): ?>
+                                    <?php while ($booking = $driver_bookings->fetch_assoc()): 
+                                        $status_class = 'status-' . strtolower($booking['BookingStatus']);
+                                    ?>
                                         <div class="booking-card driver-booking" data-booking-id="<?php echo $booking['BookingID']; ?>">
                                             <div class="booking-badge">
-                                                <span class="status-badge status-<?php echo strtolower($booking['BookingStatus']); ?>">
+                                                <span class="status-badge <?php echo $status_class; ?>">
                                                     <?php echo $booking['BookingStatus']; ?>
                                                 </span>
                                             </div>

@@ -44,7 +44,9 @@ function initializeStarRating() {
   });
 
   // Initialize with default rating
-  const defaultStar = document.querySelector('.star-rating input[type="radio"]:checked');
+  const defaultStar = document.querySelector(
+    '.star-rating input[type="radio"]:checked'
+  );
   if (defaultStar) {
     defaultStar.dispatchEvent(new Event("change"));
   }
@@ -106,7 +108,8 @@ function setupReviewForm() {
     // Show loading
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+    submitBtn.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
     submitBtn.disabled = true;
 
     // Submit form
@@ -118,7 +121,7 @@ function setupReviewForm() {
       .then((data) => {
         if (data.success) {
           showNotification("Review submitted successfully!", "success");
-          
+
           // Redirect after 2 seconds
           setTimeout(() => {
             window.location.href = "mybookings.php?review=success";

@@ -273,15 +273,15 @@ $conn->close();
                                     <div class="comment-section">
                                         <h4>Share your experience (optional)</h4>
                                         <div class="form-group">
-                                            <textarea id="comment" name="comment" class="form-control" 
-                                                      placeholder="Tell us about your ride experience... 
+                                            <textarea id="comment" name="comment" class="form-control"
+                                                placeholder="Tell us about your ride experience... 
 - Was the driver punctual?
 - How was the car condition?
 - Any suggestions for improvement?
 - What did you like most?
 
 (500 characters maximum)"
-                                                      maxlength="500" rows="6"></textarea>
+                                                maxlength="500" rows="6"></textarea>
                                             <div class="char-count">
                                                 <span id="char-count">0</span>/500 characters
                                             </div>

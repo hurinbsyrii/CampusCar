@@ -71,7 +71,7 @@ try {
                    AND b.BookingStatus = 'Paid'
                    AND p.PaymentStatus = 'paid'
                    AND r.Status = 'completed'";
-    
+
     $stmt = $conn->prepare($verify_sql);
     $stmt->bind_param("ii", $booking_id, $user_id);
     $stmt->execute();
@@ -101,7 +101,7 @@ try {
     $ride_timestamp = strtotime($ride_date);
     $current_timestamp = time();
     $days_diff = floor(($current_timestamp - $ride_timestamp) / (60 * 60 * 24));
-    
+
     // Uncomment to enforce 7-day limit
     // if ($days_diff > 7) {
     //     throw new Exception("Review period has expired (7 days after ride).");
@@ -110,7 +110,7 @@ try {
     // 4. Insert review
     $insert_sql = "INSERT INTO reviews (BookingID, UserID, DriverID, RideID, Rating, Comment, CreatedAt) 
                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
-    
+
     $stmt = $conn->prepare($insert_sql);
     $comment = $comment ? trim($comment) : null;
     $stmt->bind_param("iiiiss", $booking_id, $user_id, $driver_id, $ride_id, $rating, $comment);
@@ -132,7 +132,6 @@ try {
         'review_id' => $review_id,
         'booking_id' => $booking_id
     ]);
-
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -143,23 +142,24 @@ try {
 $conn->close();
 
 // Function to update driver's average rating
-function updateDriverRating($conn, $driver_id) {
+function updateDriverRating($conn, $driver_id)
+{
     // This function calculates and caches the driver's average rating
     // You can implement caching here if needed
     $avg_sql = "SELECT AVG(Rating) as avg_rating, COUNT(*) as review_count 
                 FROM reviews 
                 WHERE DriverID = ?";
-    
+
     $stmt = $conn->prepare($avg_sql);
     $stmt->bind_param("i", $driver_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    
+
     if ($result->num_rows > 0) {
         $data = $result->fetch_assoc();
         // You could store this in a driver_profile table or cache it
         // For now, we just calculate it on the fly when needed
     }
-    
+
     $stmt->close();
 }

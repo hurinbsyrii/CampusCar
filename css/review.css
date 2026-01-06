@@ -191,15 +191,15 @@
 }
 
 .stars label:hover,
-.stars label:hover ~ label {
+.stars label:hover~label {
     color: #ffc107;
 }
 
-.stars input[type="radio"]:checked ~ label {
+.stars input[type="radio"]:checked~label {
     color: #ffc107;
 }
 
-.stars input[type="radio"]:checked + label ~ label {
+.stars input[type="radio"]:checked+label~label {
     color: #ffc107;
 }
 

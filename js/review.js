@@ -1,4 +1,3 @@
-// Review JavaScript
 document.addEventListener("DOMContentLoaded", function () {
   console.log("Review page loaded");
 
@@ -64,11 +63,11 @@ function initializeCharCounter() {
 
       // Change color when approaching limit
       if (length > 450) {
-        charCount.style.color = "var(--error-color)";
+        charCount.style.color = "#dc3545"; // Error color
       } else if (length > 400) {
-        charCount.style.color = "var(--warning-color)";
+        charCount.style.color = "#ffc107"; // Warning color
       } else {
-        charCount.style.color = "var(--text-color)";
+        charCount.style.color = ""; // Reset
       }
     });
 
@@ -83,6 +82,8 @@ function setupReviewForm() {
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+
+    console.log("Form submission started");
 
     // Validate rating
     const rating = document.querySelector('input[name="rating"]:checked');
@@ -108,19 +109,29 @@ function setupReviewForm() {
     // Show loading
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML =
-      '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
     submitBtn.disabled = true;
 
-    // Submit form
+    // Create form data
+    const formData = new FormData(form);
+
+    // Submit via fetch
     fetch(form.action, {
       method: "POST",
-      body: new FormData(form),
+      body: formData,
     })
-      .then((response) => response.json())
+      .then((response) => {
+        console.log("Response status:", response.status);
+        return response.json();
+      })
       .then((data) => {
+        console.log("Response data:", data);
+
         if (data.success) {
-          showNotification("Review submitted successfully!", "success");
+          showNotification(
+            data.message || "Review submitted successfully!",
+            "success"
+          );
 
           // Redirect after 2 seconds
           setTimeout(() => {
@@ -134,7 +145,7 @@ function setupReviewForm() {
       })
       .catch((error) => {
         console.error("Error:", error);
-        showNotification("An error occurred while submitting review", "error");
+        showNotification("Network error. Please check your connection.", "error");
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
       });
@@ -146,8 +157,9 @@ function showNotification(message, type = "info") {
   const existingNotifications = document.querySelectorAll(".notification");
   existingNotifications.forEach((notification) => notification.remove());
 
+  // Create notification element
   const notification = document.createElement("div");
-  notification.className = `notification ${type}`;
+  notification.className = `notification notification-${type}`;
 
   const icons = {
     success: "fa-check-circle",
@@ -156,32 +168,52 @@ function showNotification(message, type = "info") {
   };
 
   notification.innerHTML = `
-        <i class="fa-solid ${icons[type] || "fa-info-circle"}"></i>
-        <span>${message}</span>
-    `;
+    <i class="fa-solid ${icons[type] || "fa-info-circle"}"></i>
+    <span>${message}</span>
+  `;
 
+  // Add styles
   notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${getNotificationColor(type)};
-        color: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        z-index: 1000;
-        animation: slideInRight 0.3s ease;
-        max-width: 400px;
-        font-weight: 500;
-    `;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${getNotificationColor(type)};
+    color: white;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 10000;
+    animation: notificationSlideIn 0.3s ease;
+    max-width: 400px;
+    font-weight: 500;
+  `;
 
   document.body.appendChild(notification);
 
+  // Add CSS animation if not exists
+  if (!document.querySelector("#notification-animations")) {
+    const style = document.createElement("style");
+    style.id = "notification-animations";
+    style.textContent = `
+      @keyframes notificationSlideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      
+      @keyframes notificationSlideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Auto remove after 5 seconds
   setTimeout(() => {
-    notification.style.animation = "slideOutRight 0.3s ease";
+    notification.style.animation = "notificationSlideOut 0.3s ease";
     setTimeout(() => {
       if (notification.parentNode) {
         notification.remove();
@@ -192,29 +224,14 @@ function showNotification(message, type = "info") {
 
 function getNotificationColor(type) {
   const colors = {
-    success: "var(--success-color)",
-    error: "var(--error-color)",
-    info: "var(--primary-color)",
+    success: "#28a745",
+    error: "#dc3545",
+    info: "#007bff",
   };
-  return colors[type] || "var(--primary-color)";
+  return colors[type] || "#007bff";
 }
 
-// Add CSS animations if not already present
-if (!document.querySelector("#notification-animations")) {
-  const style = document.createElement("style");
-  style.id = "notification-animations";
-  style.textContent = `
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-  document.head.appendChild(style);
-}
-
-console.log("Review JavaScript loaded successfully");
+// Debug: Check if elements exist
+console.log("Review form:", document.getElementById("reviewForm"));
+console.log("Comment textarea:", document.getElementById("comment"));
+console.log("Star rating container:", document.getElementById("stars"));

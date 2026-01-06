@@ -1,13 +1,51 @@
 <?php
+// Start output buffering to capture any stray output
+ob_start();
+
 session_start();
+
+// Set JSON header FIRST
 header('Content-Type: application/json');
 
 // Ensure PHP uses Malaysia timezone
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
+// Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Please log in to submit a review.']);
+    ob_end_flush();
+    exit();
+}
+
+// Validate required POST data
+$required_fields = ['booking_id', 'driver_id', 'ride_id', 'rating', 'terms'];
+foreach ($required_fields as $field) {
+    if (!isset($_POST[$field]) || empty($_POST[$field])) {
+        echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
+        ob_end_flush();
+        exit();
+    }
+}
+
+// Assign variables
+$user_id = $_SESSION['user_id'];
+$booking_id = intval($_POST['booking_id']);
+$driver_id = intval($_POST['driver_id']);
+$ride_id = intval($_POST['ride_id']);
+$rating = intval($_POST['rating']);
+$comment = isset($_POST['comment']) ? trim($_POST['comment']) : '';
+
+// Validate rating range
+if ($rating < 1 || $rating > 5) {
+    echo json_encode(['success' => false, 'message' => 'Rating must be between 1 and 5.']);
+    ob_end_flush();
+    exit();
+}
+
+// Validate comment length
+if (strlen($comment) > 500) {
+    echo json_encode(['success' => false, 'message' => 'Comment cannot exceed 500 characters.']);
+    ob_end_flush();
     exit();
 }
 
@@ -20,45 +58,13 @@ $dbname = "campuscar";
 $conn = new mysqli($servername, $username, $password, $dbname);
 
 if ($conn->connect_error) {
-    http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
+    ob_end_flush();
     exit();
 }
 
-// Ensure MySQL connection uses Malaysia timezone (+08:00)
+// Ensure MySQL connection uses Malaysia timezone
 $conn->query("SET time_zone = '+08:00'");
-
-$user_id = $_SESSION['user_id'];
-$booking_id = $_POST['booking_id'] ?? null;
-$driver_id = $_POST['driver_id'] ?? null;
-$ride_id = $_POST['ride_id'] ?? null;
-$rating = $_POST['rating'] ?? null;
-$comment = $_POST['comment'] ?? null;
-
-// Validate required fields
-if (!$booking_id || !$driver_id || !$ride_id || !$rating) {
-    echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
-    exit();
-}
-
-// Validate rating range
-$rating = intval($rating);
-if ($rating < 1 || $rating > 5) {
-    echo json_encode(['success' => false, 'message' => 'Rating must be between 1 and 5.']);
-    exit();
-}
-
-// Validate comment length
-if ($comment && strlen($comment) > 500) {
-    echo json_encode(['success' => false, 'message' => 'Comment cannot exceed 500 characters.']);
-    exit();
-}
-
-// Validate terms acceptance
-if (!isset($_POST['terms'])) {
-    echo json_encode(['success' => false, 'message' => 'Please accept the review terms.']);
-    exit();
-}
 
 try {
     // 1. Verify booking eligibility
@@ -73,6 +79,10 @@ try {
                    AND r.Status = 'completed'";
 
     $stmt = $conn->prepare($verify_sql);
+    if (!$stmt) {
+        throw new Exception("Database error: " . $conn->error);
+    }
+    
     $stmt->bind_param("ii", $booking_id, $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -87,6 +97,10 @@ try {
     // 2. Check if review already exists for this booking
     $check_review_sql = "SELECT ReviewID FROM reviews WHERE BookingID = ?";
     $stmt = $conn->prepare($check_review_sql);
+    if (!$stmt) {
+        throw new Exception("Database error: " . $conn->error);
+    }
+    
     $stmt->bind_param("i", $booking_id);
     $stmt->execute();
     $review_result = $stmt->get_result();
@@ -112,17 +126,22 @@ try {
                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
 
     $stmt = $conn->prepare($insert_sql);
-    $comment = $comment ? trim($comment) : null;
+    if (!$stmt) {
+        throw new Exception("Database error: " . $conn->error);
+    }
+    
+    // Use empty string if comment is null
+    $comment = empty($comment) ? '' : $comment;
     $stmt->bind_param("iiiiss", $booking_id, $user_id, $driver_id, $ride_id, $rating, $comment);
 
     if (!$stmt->execute()) {
-        throw new Exception("Failed to save review.");
+        throw new Exception("Failed to save review: " . $stmt->error);
     }
 
     $review_id = $conn->insert_id;
     $stmt->close();
 
-    // 5. Update driver's average rating (optional - can be cached)
+    // 5. Update driver's average rating (optional)
     updateDriverRating($conn, $driver_id);
 
     // Success response
@@ -132,6 +151,7 @@ try {
         'review_id' => $review_id,
         'booking_id' => $booking_id
     ]);
+
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -140,26 +160,20 @@ try {
 }
 
 $conn->close();
+ob_end_flush();
 
 // Function to update driver's average rating
 function updateDriverRating($conn, $driver_id)
 {
-    // This function calculates and caches the driver's average rating
-    // You can implement caching here if needed
     $avg_sql = "SELECT AVG(Rating) as avg_rating, COUNT(*) as review_count 
                 FROM reviews 
                 WHERE DriverID = ?";
 
     $stmt = $conn->prepare($avg_sql);
-    $stmt->bind_param("i", $driver_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $data = $result->fetch_assoc();
-        // You could store this in a driver_profile table or cache it
-        // For now, we just calculate it on the fly when needed
+    if ($stmt) {
+        $stmt->bind_param("i", $driver_id);
+        $stmt->execute();
+        $stmt->close();
     }
-
-    $stmt->close();
 }
+?>

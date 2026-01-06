@@ -85,6 +85,10 @@ function setupReviewForm() {
 
     console.log("Form submission started");
 
+    // Get form data for debugging
+    const formData = new FormData(form);
+    console.log("Form data:", Object.fromEntries(formData));
+
     // Validate rating
     const rating = document.querySelector('input[name="rating"]:checked');
     if (!rating) {
@@ -109,11 +113,9 @@ function setupReviewForm() {
     // Show loading
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+    submitBtn.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
     submitBtn.disabled = true;
-
-    // Create form data
-    const formData = new FormData(form);
 
     // Submit via fetch
     fetch(form.action, {
@@ -122,6 +124,17 @@ function setupReviewForm() {
     })
       .then((response) => {
         console.log("Response status:", response.status);
+        console.log("Response headers:", response.headers);
+
+        // First check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          return response.text().then((text) => {
+            console.error("Non-JSON response:", text.substring(0, 500));
+            throw new Error("Server returned non-JSON response");
+          });
+        }
+
         return response.json();
       })
       .then((data) => {
@@ -144,8 +157,11 @@ function setupReviewForm() {
         }
       })
       .catch((error) => {
-        console.error("Error:", error);
-        showNotification("Network error. Please check your connection.", "error");
+        console.error("Fetch error:", error);
+        showNotification(
+          "Network error. Please check your connection. " + error.message,
+          "error"
+        );
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
       });

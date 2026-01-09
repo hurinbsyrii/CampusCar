@@ -19,6 +19,11 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Handle CSV Export
+if (isset($_GET['export']) && $_GET['export'] == 'csv') {
+    exportRidesToCSV($conn);
+}
+
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_POST['ride_id'])) {
     $ride_id = intval($_POST['ride_id']);
@@ -141,6 +146,164 @@ $dates_result = $conn->query("SELECT DISTINCT RideDate FROM rides WHERE RideDate
 $dates = [];
 while ($row = $dates_result->fetch_assoc()) {
     $dates[] = $row['RideDate'];
+}
+
+// Export CSV function
+function exportRidesToCSV($conn) {
+    // Get filter parameters
+    $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
+    $status_filter = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : '';
+    $date_filter = isset($_GET['date']) ? $conn->real_escape_string($_GET['date']) : '';
+    $female_only = isset($_GET['female_only']) ? $_GET['female_only'] : '';
+
+    // Build export query with all columns
+    $sql = "SELECT 
+        r.RideID,
+        r.FromLocation,
+        r.ToLocation,
+        r.RideDate,
+        r.DepartureTime,
+        r.AvailableSeats,
+        r.PricePerSeat,
+        r.RideDescription,
+        r.Status,
+        r.FemaleOnly,
+        r.FromLat,
+        r.FromLng,
+        r.ToLat,
+        r.ToLng,
+        r.DistanceKm,
+        d.DriverID,
+        d.CarModel,
+        d.CarPlateNumber,
+        d.LicenseNumber,
+        u.FullName as DriverName,
+        u.PhoneNumber as DriverPhone,
+        u.Email as DriverEmail,
+        COUNT(DISTINCT b.BookingID) as TotalBookings,
+        COALESCE(SUM(b.TotalPrice), 0) as TotalRevenue,
+        COALESCE(SUM(de.Amount), 0) as DriverEarnings,
+        GROUP_CONCAT(DISTINCT CONCAT(u2.FullName, ' (', b2.NoOfSeats, ' seats)') SEPARATOR '; ') as Passengers
+        FROM rides r
+        LEFT JOIN driver d ON r.DriverID = d.DriverID
+        LEFT JOIN user u ON d.UserID = u.UserID
+        LEFT JOIN booking b ON r.RideID = b.RideID AND b.BookingStatus NOT IN ('Cancelled')
+        LEFT JOIN booking b2 ON r.RideID = b2.RideID AND b2.BookingStatus IN ('Confirmed', 'Paid', 'Completed')
+        LEFT JOIN user u2 ON b2.UserID = u2.UserID
+        LEFT JOIN driver_earnings de ON r.RideID = de.RideID
+        WHERE 1=1";
+
+    if (!empty($search_term)) {
+        $sql .= " AND (r.FromLocation LIKE '%$search_term%' 
+                      OR r.ToLocation LIKE '%$search_term%'
+                      OR u.FullName LIKE '%$search_term%'
+                      OR d.CarPlateNumber LIKE '%$search_term%')";
+    }
+
+    if (!empty($status_filter)) {
+        if ($status_filter === 'upcoming') {
+            $sql .= " AND (r.Status = 'available' OR r.Status = 'in_progress') 
+                      AND (r.RideDate > CURDATE() OR (r.RideDate = CURDATE() AND r.DepartureTime > CURTIME()))";
+        } elseif ($status_filter === 'past') {
+            $sql .= " AND (r.Status IN ('completed', 'expired') 
+                      OR (r.RideDate < CURDATE()) 
+                      OR (r.RideDate = CURDATE() AND r.DepartureTime < CURTIME()))";
+        } else {
+            $sql .= " AND r.Status = '$status_filter'";
+        }
+    }
+
+    if (!empty($date_filter)) {
+        $sql .= " AND r.RideDate = '$date_filter'";
+    }
+
+    if ($female_only === '1') {
+        $sql .= " AND r.FemaleOnly = 1";
+    } elseif ($female_only === '0') {
+        $sql .= " AND r.FemaleOnly = 0";
+    }
+
+    $sql .= " GROUP BY r.RideID ORDER BY r.RideDate DESC, r.DepartureTime DESC";
+
+    $result = $conn->query($sql);
+
+    // Set headers for CSV download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=rides_export_' . date('Y-m-d_H-i-s') . '.csv');
+    
+    // Create output stream
+    $output = fopen('php://output', 'w');
+    
+    // Add BOM for UTF-8
+    fputs($output, "\xEF\xBB\xBF");
+    
+    // CSV headers
+    $headers = [
+        'Ride ID',
+        'From Location',
+        'To Location',
+        'Ride Date',
+        'Departure Time',
+        'Available Seats',
+        'Price Per Seat',
+        'Description',
+        'Status',
+        'Female Only',
+        'From Latitude',
+        'From Longitude',
+        'To Latitude',
+        'To Longitude',
+        'Distance (km)',
+        'Driver ID',
+        'Driver Name',
+        'Driver Phone',
+        'Driver Email',
+        'Car Model',
+        'Car Plate Number',
+        'License Number',
+        'Total Bookings',
+        'Total Revenue (RM)',
+        'Driver Earnings (RM)',
+        'Passengers'
+    ];
+    
+    fputcsv($output, $headers);
+    
+    // Add data rows
+    while ($row = $result->fetch_assoc()) {
+        $csv_row = [
+            $row['RideID'],
+            $row['FromLocation'],
+            $row['ToLocation'],
+            $row['RideDate'],
+            $row['DepartureTime'],
+            $row['AvailableSeats'],
+            $row['PricePerSeat'],
+            $row['RideDescription'],
+            $row['Status'],
+            $row['FemaleOnly'] ? 'Yes' : 'No',
+            $row['FromLat'],
+            $row['FromLng'],
+            $row['ToLat'],
+            $row['ToLng'],
+            $row['DistanceKm'],
+            $row['DriverID'],
+            $row['DriverName'],
+            $row['DriverPhone'],
+            $row['DriverEmail'],
+            $row['CarModel'],
+            $row['CarPlateNumber'],
+            $row['LicenseNumber'],
+            $row['TotalBookings'],
+            number_format($row['TotalRevenue'], 2),
+            number_format($row['DriverEarnings'], 2),
+            $row['Passengers'] ?? 'None'
+        ];
+        fputcsv($output, $csv_row);
+    }
+    
+    fclose($output);
+    exit();
 }
 ?>
 
@@ -339,6 +502,11 @@ while ($row = $dates_result->fetch_assoc()) {
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
 
+                                    <!-- Export CSV Button -->
+                                    <button type="button" id="exportCsvBtn" class="export-btn">
+                                        <i class="fa-solid fa-file-export"></i> Export CSV
+                                    </button>
+
                                     <a href="admin-rides.php" class="clear-btn">
                                         <i class="fa-solid fa-times"></i> Clear
                                     </a>
@@ -355,6 +523,14 @@ while ($row = $dates_result->fetch_assoc()) {
                         </div>
                         <?php unset($_SESSION['notification']); ?>
                     <?php endif; ?>
+
+                    <!-- Export Loading Indicator -->
+                    <div id="exportLoading" class="export-loading" style="display: none;">
+                        <div class="loading-spinner">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                        </div>
+                        <p>Preparing CSV export... Please wait</p>
+                    </div>
 
                     <div class="rides-table-container">
                         <table class="rides-table">

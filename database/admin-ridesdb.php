@@ -281,8 +281,9 @@ function logRideActivity($conn, $ride_id, $activity_type, $description)
     return true;
 }
 
-function exportRidesData($conn, $format = 'csv')
+function exportRidesData($conn, $filters = [])
 {
+    // Build query with filters
     $sql = "SELECT 
         r.RideID,
         r.FromLocation,
@@ -291,66 +292,150 @@ function exportRidesData($conn, $format = 'csv')
         r.DepartureTime,
         r.AvailableSeats,
         r.PricePerSeat,
+        r.RideDescription,
         r.Status,
         r.FemaleOnly,
-        r.RideDescription,
-        u.FullName as DriverName,
+        r.FromLat,
+        r.FromLng,
+        r.ToLat,
+        r.ToLng,
+        r.DistanceKm,
+        d.DriverID,
         d.CarModel,
         d.CarPlateNumber,
-        COUNT(b.BookingID) as TotalBookings,
-        COALESCE(SUM(b.TotalPrice), 0) as TotalRevenue
+        d.LicenseNumber,
+        u.FullName as DriverName,
+        u.PhoneNumber as DriverPhone,
+        u.Email as DriverEmail,
+        COUNT(DISTINCT b.BookingID) as TotalBookings,
+        COALESCE(SUM(b.TotalPrice), 0) as TotalRevenue,
+        COALESCE(SUM(de.Amount), 0) as DriverEarnings,
+        GROUP_CONCAT(DISTINCT CONCAT(u2.FullName, ' (', b2.NoOfSeats, ' seats)') SEPARATOR '; ') as Passengers
         FROM rides r
         LEFT JOIN driver d ON r.DriverID = d.DriverID
         LEFT JOIN user u ON d.UserID = u.UserID
         LEFT JOIN booking b ON r.RideID = b.RideID AND b.BookingStatus NOT IN ('Cancelled')
-        GROUP BY r.RideID
-        ORDER BY r.RideDate DESC";
+        LEFT JOIN booking b2 ON r.RideID = b2.RideID AND b2.BookingStatus IN ('Confirmed', 'Paid', 'Completed')
+        LEFT JOIN user u2 ON b2.UserID = u2.UserID
+        LEFT JOIN driver_earnings de ON r.RideID = de.RideID
+        WHERE 1=1";
+
+    // Apply filters
+    if (!empty($filters['search'])) {
+        $search = $conn->real_escape_string($filters['search']);
+        $sql .= " AND (r.FromLocation LIKE '%$search%' 
+                      OR r.ToLocation LIKE '%$search%'
+                      OR u.FullName LIKE '%$search%'
+                      OR d.CarPlateNumber LIKE '%$search%')";
+    }
+
+    if (!empty($filters['status'])) {
+        $status = $conn->real_escape_string($filters['status']);
+        if ($status === 'upcoming') {
+            $sql .= " AND (r.Status = 'available' OR r.Status = 'in_progress') 
+                      AND (r.RideDate > CURDATE() OR (r.RideDate = CURDATE() AND r.DepartureTime > CURTIME()))";
+        } elseif ($status === 'past') {
+            $sql .= " AND (r.Status IN ('completed', 'expired') 
+                      OR (r.RideDate < CURDATE()) 
+                      OR (r.RideDate = CURDATE() AND r.DepartureTime < CURTIME()))";
+        } else {
+            $sql .= " AND r.Status = '$status'";
+        }
+    }
+
+    if (!empty($filters['date'])) {
+        $date = $conn->real_escape_string($filters['date']);
+        $sql .= " AND r.RideDate = '$date'";
+    }
+
+    if (isset($filters['female_only'])) {
+        if ($filters['female_only'] === '1') {
+            $sql .= " AND r.FemaleOnly = 1";
+        } elseif ($filters['female_only'] === '0') {
+            $sql .= " AND r.FemaleOnly = 0";
+        }
+    }
+
+    $sql .= " GROUP BY r.RideID ORDER BY r.RideDate DESC, r.DepartureTime DESC";
 
     $result = $conn->query($sql);
 
-    if ($format === 'csv') {
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="rides_export_' . date('Y-m-d') . '.csv"');
-
-        $output = fopen('php://output', 'w');
-
-        // Headers
-        fputcsv($output, [
-            'Ride ID',
-            'From Location',
-            'To Location',
-            'Date',
-            'Departure Time',
-            'Available Seats',
-            'Price Per Seat',
-            'Status',
-            'Female Only',
-            'Description',
-            'Driver Name',
-            'Car Model',
-            'Car Plate',
-            'Total Bookings',
-            'Total Revenue'
-        ]);
-
-        // Data
-        while ($row = $result->fetch_assoc()) {
-            fputcsv($output, $row);
-        }
-
-        fclose($output);
-    } elseif ($format === 'json') {
-        header('Content-Type: application/json');
-        header('Content-Disposition: attachment; filename="rides_export_' . date('Y-m-d') . '.json"');
-
-        $data = [];
-        while ($row = $result->fetch_assoc()) {
-            $data[] = $row;
-        }
-
-        echo json_encode($data, JSON_PRETTY_PRINT);
+    // Set headers for CSV download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=rides_export_' . date('Y-m-d_H-i-s') . '.csv');
+    
+    // Create output stream
+    $output = fopen('php://output', 'w');
+    
+    // Add BOM for UTF-8
+    fputs($output, "\xEF\xBB\xBF");
+    
+    // CSV headers
+    $headers = [
+        'Ride ID',
+        'From Location',
+        'To Location',
+        'Ride Date',
+        'Departure Time',
+        'Available Seats',
+        'Price Per Seat',
+        'Description',
+        'Status',
+        'Female Only',
+        'From Latitude',
+        'From Longitude',
+        'To Latitude',
+        'To Longitude',
+        'Distance (km)',
+        'Driver ID',
+        'Driver Name',
+        'Driver Phone',
+        'Driver Email',
+        'Car Model',
+        'Car Plate Number',
+        'License Number',
+        'Total Bookings',
+        'Total Revenue (RM)',
+        'Driver Earnings (RM)',
+        'Passengers'
+    ];
+    
+    fputcsv($output, $headers);
+    
+    // Add data rows
+    while ($row = $result->fetch_assoc()) {
+        $csv_row = [
+            $row['RideID'],
+            $row['FromLocation'],
+            $row['ToLocation'],
+            $row['RideDate'],
+            $row['DepartureTime'],
+            $row['AvailableSeats'],
+            $row['PricePerSeat'],
+            $row['RideDescription'],
+            $row['Status'],
+            $row['FemaleOnly'] ? 'Yes' : 'No',
+            $row['FromLat'],
+            $row['FromLng'],
+            $row['ToLat'],
+            $row['ToLng'],
+            $row['DistanceKm'],
+            $row['DriverID'],
+            $row['DriverName'],
+            $row['DriverPhone'],
+            $row['DriverEmail'],
+            $row['CarModel'],
+            $row['CarPlateNumber'],
+            $row['LicenseNumber'],
+            $row['TotalBookings'],
+            number_format($row['TotalRevenue'], 2),
+            number_format($row['DriverEarnings'], 2),
+            $row['Passengers'] ?? 'None'
+        ];
+        fputcsv($output, $csv_row);
     }
-
+    
+    fclose($output);
     exit();
 }
 
@@ -414,3 +499,5 @@ function getRidesCount($conn, $filters = [])
 
     return $count;
 }
+
+

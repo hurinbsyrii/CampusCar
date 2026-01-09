@@ -363,13 +363,13 @@ function exportRidesData($conn, $filters = [])
     // Set headers for CSV download
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=rides_export_' . date('Y-m-d_H-i-s') . '.csv');
-    
+
     // Create output stream
     $output = fopen('php://output', 'w');
-    
+
     // Add BOM for UTF-8
     fputs($output, "\xEF\xBB\xBF");
-    
+
     // CSV headers
     $headers = [
         'Ride ID',
@@ -399,9 +399,9 @@ function exportRidesData($conn, $filters = [])
         'Driver Earnings (RM)',
         'Passengers'
     ];
-    
+
     fputcsv($output, $headers);
-    
+
     // Add data rows
     while ($row = $result->fetch_assoc()) {
         $csv_row = [
@@ -434,7 +434,7 @@ function exportRidesData($conn, $filters = [])
         ];
         fputcsv($output, $csv_row);
     }
-    
+
     fclose($output);
     exit();
 }
@@ -499,5 +499,3 @@ function getRidesCount($conn, $filters = [])
 
     return $count;
 }
-
-

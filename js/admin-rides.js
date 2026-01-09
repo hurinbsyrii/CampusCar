@@ -102,7 +102,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const searchInput = document.querySelector('input[name="search"]');
     const statusSelect = document.querySelector('select[name="status"]');
     const dateSelect = document.querySelector('select[name="date"]');
-    const femaleOnlySelect = document.querySelector('select[name="female_only"]');
+    const femaleOnlySelect = document.querySelector(
+      'select[name="female_only"]'
+    );
 
     const searchTerm = searchInput ? searchInput.value : "";
     const statusFilter = statusSelect ? statusSelect.value : "";
@@ -165,10 +167,10 @@ document.addEventListener("DOMContentLoaded", function () {
           exportLoading.style.display = "none";
           document.body.style.overflow = "";
         }
-        
+
         // Show success message
         showExportNotification("CSV export completed successfully!", "success");
-        
+
         // Remove iframe
         if (iframe.parentNode) {
           iframe.parentNode.removeChild(iframe);
@@ -183,10 +185,13 @@ document.addEventListener("DOMContentLoaded", function () {
         exportLoading.style.display = "none";
         document.body.style.overflow = "";
       }
-      
+
       // Show error message
-      showExportNotification("Failed to export CSV. Please try again.", "error");
-      
+      showExportNotification(
+        "Failed to export CSV. Please try again.",
+        "error"
+      );
+
       // Remove iframe
       if (iframe.parentNode) {
         iframe.parentNode.removeChild(iframe);
@@ -207,14 +212,18 @@ document.addEventListener("DOMContentLoaded", function () {
   // Show export notification
   function showExportNotification(message, type) {
     // Remove existing export notifications
-    const existingNotifications = document.querySelectorAll(".notification.export-notification");
-    existingNotifications.forEach(notification => notification.remove());
+    const existingNotifications = document.querySelectorAll(
+      ".notification.export-notification"
+    );
+    existingNotifications.forEach((notification) => notification.remove());
 
     // Create new notification
     const notification = document.createElement("div");
     notification.className = `notification ${type} export-notification`;
     notification.innerHTML = `
-      <i class="fa-solid fa-${type === "success" ? "check-circle" : "exclamation-triangle"}"></i>
+      <i class="fa-solid fa-${
+        type === "success" ? "check-circle" : "exclamation-triangle"
+      }"></i>
       <span>${message}</span>
       <button class="close-notification"><i class="fa-solid fa-times"></i></button>
     `;
@@ -224,11 +233,17 @@ document.addEventListener("DOMContentLoaded", function () {
     if (ridesSection) {
       const firstNotification = ridesSection.querySelector(".notification");
       if (firstNotification) {
-        firstNotification.parentNode.insertBefore(notification, firstNotification.nextSibling);
+        firstNotification.parentNode.insertBefore(
+          notification,
+          firstNotification.nextSibling
+        );
       } else {
         const sectionHeader = ridesSection.querySelector(".section-header");
         if (sectionHeader) {
-          sectionHeader.parentNode.insertBefore(notification, sectionHeader.nextSibling);
+          sectionHeader.parentNode.insertBefore(
+            notification,
+            sectionHeader.nextSibling
+          );
         }
       }
     }

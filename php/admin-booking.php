@@ -827,9 +827,9 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <button class="action-btn view-btn" data-id="<?php echo $booking['BookingID']; ?>">
+                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $booking['BookingID']; ?>">
                                                         <i class="fa-solid fa-eye"></i> View
-                                                    </button>
+                                                    </button> -->
 
                                                     <?php if ($booking['BookingStatus'] !== 'Completed' && $booking['BookingStatus'] !== 'Cancelled'): ?>
                                                         <button class="action-btn update-btn"
@@ -840,11 +840,11 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                     <?php endif; ?>
 
                                                     <?php if ($booking['BookingStatus'] !== 'Cancelled'): ?>
-                                                        <button class="action-btn cancel-btn"
+                                                        <!-- <button class="action-btn cancel-btn"
                                                             data-id="<?php echo $booking['BookingID']; ?>"
                                                             data-current-status="<?php echo $booking['BookingStatus']; ?>">
                                                             <i class="fa-solid fa-times"></i> Cancel
-                                                        </button>
+                                                        </button> -->
                                                     <?php endif; ?>
                                                 </div>
                                             </td>

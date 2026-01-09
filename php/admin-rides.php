@@ -492,9 +492,9 @@ while ($row = $dates_result->fetch_assoc()) {
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <button class="action-btn view-btn" data-id="<?php echo $ride['RideID']; ?>">
+                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $ride['RideID']; ?>">
                                                         <i class="fa-solid fa-eye"></i> View
-                                                    </button>
+                                                    </button> -->
                                                     
                                                     <?php if ($ride['Status'] === 'available' || $ride['Status'] === 'in_progress'): ?>
                                                         <button class="action-btn update-btn" 
@@ -504,9 +504,9 @@ while ($row = $dates_result->fetch_assoc()) {
                                                         </button>
                                                     <?php endif; ?>
                                                     
-                                                    <button class="action-btn bookings-btn" data-id="<?php echo $ride['RideID']; ?>">
+                                                    <!-- <button class="action-btn bookings-btn" data-id="<?php echo $ride['RideID']; ?>">
                                                         <i class="fa-solid fa-ticket"></i> Bookings
-                                                    </button>
+                                                    </button> -->
                                                 </div>
                                             </td>
                                         </tr>

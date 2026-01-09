@@ -722,6 +722,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -732,6 +733,7 @@
         transform: translateY(20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -743,6 +745,7 @@
         transform: translateX(-20px);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -754,7 +757,7 @@
     .rides-table-container {
         padding: 0 15px 15px;
     }
-    
+
     .rides-table th,
     .rides-table td {
         padding: 15px 10px;
@@ -765,11 +768,11 @@
     .rides-table {
         display: block;
     }
-    
+
     .rides-table thead {
         display: none;
     }
-    
+
     .rides-table tbody tr {
         display: block;
         margin-bottom: 25px;
@@ -777,17 +780,17 @@
         border-radius: 12px;
         padding: 20px;
     }
-    
+
     .rides-table td {
         display: block;
         padding: 15px 0;
         border-bottom: 1px solid #f3f4f6;
     }
-    
+
     .rides-table td:last-child {
         border-bottom: none;
     }
-    
+
     .rides-table td::before {
         content: attr(data-label);
         font-weight: 600;
@@ -797,30 +800,30 @@
         font-size: 0.9rem;
         text-transform: uppercase;
     }
-    
+
     .action-buttons {
         flex-direction: row;
         flex-wrap: wrap;
         justify-content: flex-start;
     }
-    
+
     .action-btn {
         width: auto;
         flex: 1;
         min-width: 120px;
     }
-    
+
     .filter-controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .filter-select,
     .filter-btn,
     .clear-btn {
         width: 100%;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10px;
@@ -831,20 +834,20 @@
     .action-buttons {
         flex-direction: column;
     }
-    
+
     .action-btn {
         width: 100%;
     }
-    
+
     .modal-actions {
         flex-direction: column;
     }
-    
+
     .route-info {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .route-arrow {
         transform: rotate(90deg);
         margin: 5px 0;

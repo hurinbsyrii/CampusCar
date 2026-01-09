@@ -23,13 +23,13 @@ if ($conn->connect_error) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_POST['ride_id'])) {
     $ride_id = intval($_POST['ride_id']);
     $action = $_POST['action'];
-    
+
     if ($action === 'update_status' && isset($_POST['new_status'])) {
         $new_status = $conn->real_escape_string($_POST['new_status']);
-        
+
         // Validate status transition
         $current_status = $conn->query("SELECT Status FROM rides WHERE RideID = $ride_id")->fetch_assoc()['Status'];
-        
+
         $valid_transitions = [
             'available' => ['in_progress', 'cancelled'],
             'in_progress' => ['completed', 'cancelled'],
@@ -37,11 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
             'cancelled' => [],
             'expired' => []
         ];
-        
+
         if (in_array($new_status, $valid_transitions[$current_status])) {
             $stmt = $conn->prepare("UPDATE rides SET Status = ? WHERE RideID = ?");
             $stmt->bind_param("si", $new_status, $ride_id);
-            
+
             if ($stmt->execute()) {
                 $_SESSION['notification'] = [
                     'message' => "Ride status updated to " . ucfirst(str_replace('_', ' ', $new_status)),
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
                 'type' => 'error'
             ];
         }
-        
+
         header("Location: admin-rides.php");
         exit();
     }
@@ -146,6 +146,7 @@ while ($row = $dates_result->fetch_assoc()) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -155,6 +156,7 @@ while ($row = $dates_result->fetch_assoc()) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="admin-container">
         <!-- Sidebar -->
@@ -302,10 +304,10 @@ while ($row = $dates_result->fetch_assoc()) {
                             <form method="GET" class="search-filter-form">
                                 <div class="search-box">
                                     <i class="fa-solid fa-search"></i>
-                                    <input type="text" name="search" placeholder="Search rides..." 
-                                           value="<?php echo htmlspecialchars($search_term); ?>">
+                                    <input type="text" name="search" placeholder="Search rides..."
+                                        value="<?php echo htmlspecialchars($search_term); ?>">
                                 </div>
-                                
+
                                 <div class="filter-controls">
                                     <select name="status" class="filter-select">
                                         <option value="">All Status</option>
@@ -316,27 +318,27 @@ while ($row = $dates_result->fetch_assoc()) {
                                         <option value="upcoming" <?php echo $status_filter === 'upcoming' ? 'selected' : ''; ?>>Upcoming</option>
                                         <option value="past" <?php echo $status_filter === 'past' ? 'selected' : ''; ?>>Past</option>
                                     </select>
-                                    
+
                                     <select name="date" class="filter-select">
                                         <option value="">All Dates</option>
                                         <?php foreach ($dates as $date): ?>
-                                            <option value="<?php echo $date; ?>" 
+                                            <option value="<?php echo $date; ?>"
                                                 <?php echo $date_filter === $date ? 'selected' : ''; ?>>
                                                 <?php echo date('M d, Y', strtotime($date)); ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    
+
                                     <select name="female_only" class="filter-select">
                                         <option value="">All Types</option>
                                         <option value="1" <?php echo $female_only === '1' ? 'selected' : ''; ?>>Female Only</option>
                                         <option value="0" <?php echo $female_only === '0' ? 'selected' : ''; ?>>Mixed</option>
                                     </select>
-                                    
+
                                     <button type="submit" class="filter-btn">
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
-                                    
+
                                     <a href="admin-rides.php" class="clear-btn">
                                         <i class="fa-solid fa-times"></i> Clear
                                     </a>
@@ -375,7 +377,7 @@ while ($row = $dates_result->fetch_assoc()) {
                                         $current_datetime = time();
                                         $is_upcoming = $ride_datetime > $current_datetime;
                                         $is_past = $ride_datetime < $current_datetime;
-                                        
+
                                         // Determine status class
                                         $status_class = 'status-' . str_replace('_', '-', $ride['Status']);
                                         if ($ride['Status'] === 'available' && $is_upcoming) {
@@ -460,7 +462,7 @@ while ($row = $dates_result->fetch_assoc()) {
                                                     <p>
                                                         <strong>Seats Sold:</strong>
                                                         <span class="stat-value">
-                                                            <?php 
+                                                            <?php
                                                             $total_seats = 4; // Assuming 4 seats per car
                                                             $seats_sold = $total_seats - $ride['AvailableSeats'];
                                                             echo $seats_sold . '/' . $total_seats;
@@ -495,15 +497,15 @@ while ($row = $dates_result->fetch_assoc()) {
                                                     <!-- <button class="action-btn view-btn" data-id="<?php echo $ride['RideID']; ?>">
                                                         <i class="fa-solid fa-eye"></i> View
                                                     </button> -->
-                                                    
+
                                                     <?php if ($ride['Status'] === 'available' || $ride['Status'] === 'in_progress'): ?>
-                                                        <button class="action-btn update-btn" 
-                                                                data-id="<?php echo $ride['RideID']; ?>"
-                                                                data-current-status="<?php echo $ride['Status']; ?>">
+                                                        <button class="action-btn update-btn"
+                                                            data-id="<?php echo $ride['RideID']; ?>"
+                                                            data-current-status="<?php echo $ride['Status']; ?>">
                                                             <i class="fa-solid fa-sync-alt"></i> Update Status
                                                         </button>
                                                     <?php endif; ?>
-                                                    
+
                                                     <!-- <button class="action-btn bookings-btn" data-id="<?php echo $ride['RideID']; ?>">
                                                         <i class="fa-solid fa-ticket"></i> Bookings
                                                     </button> -->
@@ -523,7 +525,7 @@ while ($row = $dates_result->fetch_assoc()) {
                                 <?php endif; ?>
                             </tbody>
                         </table>
-                        
+
                         <!-- Pagination -->
                         <div class="pagination">
                             <button class="pagination-btn disabled">
@@ -548,7 +550,7 @@ while ($row = $dates_result->fetch_assoc()) {
                             <form id="statusForm" method="POST">
                                 <input type="hidden" name="ride_id" id="modalRideId">
                                 <input type="hidden" name="action" value="update_status">
-                                
+
                                 <div class="form-section">
                                     <div class="form-group">
                                         <label for="new_status">
@@ -560,16 +562,16 @@ while ($row = $dates_result->fetch_assoc()) {
                                         </select>
                                         <small class="help-text" id="statusHelp"></small>
                                     </div>
-                                    
+
                                     <div class="current-status-info">
                                         <p><strong>Current Status:</strong> <span id="currentStatusDisplay"></span></p>
                                     </div>
-                                    
+
                                     <div class="status-options" id="statusOptions">
                                         <!-- Status options will be loaded here -->
                                     </div>
                                 </div>
-                                
+
                                 <div class="modal-actions">
                                     <button type="button" class="btn-secondary close-modal-btn">Cancel</button>
                                     <button type="submit" class="btn-primary">Update Status</button>
@@ -584,5 +586,6 @@ while ($row = $dates_result->fetch_assoc()) {
 
     <script src="../js/admin-rides.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>
 <?php $conn->close(); ?>

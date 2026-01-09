@@ -19,7 +19,164 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle status update
+// Handle Export CSV
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'export_csv') {
+    // Get current filter parameters
+    $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
+    $status_filter = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : '';
+    $date_from = isset($_GET['date_from']) ? $conn->real_escape_string($_GET['date_from']) : '';
+    $date_to = isset($_GET['date_to']) ? $conn->real_escape_string($_GET['date_to']) : '';
+    $payment_method = isset($_GET['payment_method']) ? $conn->real_escape_string($_GET['payment_method']) : '';
+    $min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : '';
+    $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
+
+    // Build export query with same filters as main query
+    $export_sql = "SELECT 
+        b.*,
+        u.FullName as UserName,
+        u.MatricNo as UserMatric,
+        u.Email as UserEmail,
+        u.PhoneNumber as UserPhone,
+        r.FromLocation,
+        r.ToLocation,
+        r.RideDate,
+        r.DepartureTime,
+        r.PricePerSeat,
+        r.Status as RideStatus,
+        d.FullName as DriverName,
+        p.PaymentMethod,
+        p.PaymentStatus,
+        p.ProofPath,
+        p.TransactionID,
+        p.PaymentDate,
+        de.Amount as DriverEarnings,
+        de.PaymentDate as DriverPaymentDate
+        FROM booking b
+        LEFT JOIN user u ON b.UserID = u.UserID
+        LEFT JOIN rides r ON b.RideID = r.RideID
+        LEFT JOIN driver dr ON r.DriverID = dr.DriverID
+        LEFT JOIN user d ON dr.UserID = d.UserID
+        LEFT JOIN payments p ON b.BookingID = p.BookingID
+        LEFT JOIN driver_earnings de ON b.BookingID = de.BookingID
+        WHERE 1=1";
+
+    if (!empty($search_term)) {
+        $export_sql .= " AND (u.FullName LIKE '%$search_term%' 
+                          OR u.MatricNo LIKE '%$search_term%'
+                          OR r.FromLocation LIKE '%$search_term%'
+                          OR r.ToLocation LIKE '%$search_term%'
+                          OR d.FullName LIKE '%$search_term%')";
+    }
+
+    if (!empty($status_filter)) {
+        $export_sql .= " AND b.BookingStatus = '$status_filter'";
+    }
+
+    if (!empty($date_from)) {
+        $export_sql .= " AND DATE(b.BookingDateTime) >= '$date_from'";
+    }
+
+    if (!empty($date_to)) {
+        $export_sql .= " AND DATE(b.BookingDateTime) <= '$date_to'";
+    }
+
+    if (!empty($payment_method)) {
+        $export_sql .= " AND p.PaymentMethod = '$payment_method'";
+    }
+
+    if (!empty($min_price) && is_numeric($min_price)) {
+        $export_sql .= " AND b.TotalPrice >= $min_price";
+    }
+
+    if (!empty($max_price) && is_numeric($max_price)) {
+        $export_sql .= " AND b.TotalPrice <= $max_price";
+    }
+
+    $export_sql .= " ORDER BY b.BookingDateTime DESC";
+
+    $export_result = $conn->query($export_sql);
+
+    // Set headers for CSV download
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="bookings_export_' . date('Y-m-d_H-i-s') . '.csv"');
+
+    // Create output stream
+    $output = fopen('php://output', 'w');
+
+    // Add BOM for UTF-8
+    fwrite($output, "\xEF\xBB\xBF");
+
+    // CSV headers
+    $headers = [
+        'Booking ID',
+        'Ride ID',
+        'User ID',
+        'Booking Date Time',
+        'No of Seats',
+        'Total Price',
+        'Booking Status',
+        'Cancellation Reason',
+        'User Name',
+        'User Matric',
+        'User Email',
+        'User Phone',
+        'From Location',
+        'To Location',
+        'Ride Date',
+        'Departure Time',
+        'Price Per Seat',
+        'Ride Status',
+        'Driver Name',
+        'Payment Method',
+        'Payment Status',
+        'Proof Path',
+        'Transaction ID',
+        'Payment Date',
+        'Driver Earnings',
+        'Driver Payment Date'
+    ];
+
+    fputcsv($output, $headers);
+
+    // Add data rows
+    while ($row = $export_result->fetch_assoc()) {
+        $csv_row = [
+            $row['BookingID'],
+            $row['RideID'],
+            $row['UserID'],
+            $row['BookingDateTime'],
+            $row['NoOfSeats'],
+            $row['TotalPrice'],
+            $row['BookingStatus'],
+            $row['CancellationReason'],
+            $row['UserName'],
+            $row['UserMatric'],
+            $row['UserEmail'],
+            $row['UserPhone'],
+            $row['FromLocation'],
+            $row['ToLocation'],
+            $row['RideDate'],
+            $row['DepartureTime'],
+            $row['PricePerSeat'],
+            $row['RideStatus'],
+            $row['DriverName'],
+            $row['PaymentMethod'],
+            $row['PaymentStatus'],
+            $row['ProofPath'],
+            $row['TransactionID'],
+            $row['PaymentDate'],
+            $row['DriverEarnings'],
+            $row['DriverPaymentDate']
+        ];
+
+        fputcsv($output, $csv_row);
+    }
+
+    fclose($output);
+    exit();
+}
+
+// Handle status update (existing code remains the same)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_POST['booking_id'])) {
     $booking_id = intval($_POST['booking_id']);
     $action = $_POST['action'];
@@ -152,7 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
     }
 }
 
-// Get search and filter parameters
+// Get search and filter parameters (existing code remains the same)
 $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : '';
 $date_from = isset($_GET['date_from']) ? $conn->real_escape_string($_GET['date_from']) : '';
@@ -161,7 +318,7 @@ $payment_method = isset($_GET['payment_method']) ? $conn->real_escape_string($_G
 $min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : '';
 $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
 
-// Build query with joins
+// Build query with joins (existing code remains the same)
 $sql = "SELECT 
     b.*,
     u.FullName as UserName,
@@ -179,7 +336,9 @@ $sql = "SELECT
     p.PaymentStatus,
     p.ProofPath,
     p.TransactionID,
-    de.Amount as DriverEarnings
+    p.PaymentDate,
+    de.Amount as DriverEarnings,
+    de.PaymentDate as DriverPaymentDate
     FROM booking b
     LEFT JOIN user u ON b.UserID = u.UserID
     LEFT JOIN rides r ON b.RideID = r.RideID
@@ -225,7 +384,7 @@ $sql .= " ORDER BY b.BookingDateTime DESC";
 
 $result = $conn->query($sql);
 
-// Get statistics
+// Get statistics (existing code remains the same)
 $total_bookings = $conn->query("SELECT COUNT(*) as count FROM booking")->fetch_assoc()['count'];
 $pending_bookings = $conn->query("SELECT COUNT(*) as count FROM booking WHERE BookingStatus = 'Pending'")->fetch_assoc()['count'];
 $confirmed_bookings = $conn->query("SELECT COUNT(*) as count FROM booking WHERE BookingStatus = 'Confirmed'")->fetch_assoc()['count'];
@@ -598,7 +757,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                     <div class="section-header">
                         <h3><i class="fa-solid fa-list"></i> All Bookings</h3>
                         <div class="section-actions">
-                            <form method="GET" class="search-filter-form">
+                            <form method="GET" class="search-filter-form" id="filterForm">
                                 <div class="search-box">
                                     <i class="fa-solid fa-search"></i>
                                     <input type="text" name="search" placeholder="Search bookings..."
@@ -646,6 +805,11 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
 
+                                    <!-- Export CSV Button -->
+                                    <button type="button" id="exportCsvBtn" class="export-btn">
+                                        <i class="fa-solid fa-file-export"></i> Export CSV
+                                    </button>
+
                                     <a href="admin-booking.php" class="clear-btn">
                                         <i class="fa-solid fa-times"></i> Clear
                                     </a>
@@ -662,6 +826,14 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                         </div>
                         <?php unset($_SESSION['notification']); ?>
                     <?php endif; ?>
+
+                    <!-- Export Loading Indicator -->
+                    <div id="exportLoading" class="export-loading" style="display: none;">
+                        <div class="loading-spinner">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <span>Preparing CSV export...</span>
+                        </div>
+                    </div>
 
                     <div class="bookings-table-container">
                         <table class="bookings-table">
@@ -784,6 +956,12 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                                 </a>
                                                             </p>
                                                         <?php endif; ?>
+                                                        <?php if (!empty($booking['PaymentDate'])): ?>
+                                                            <p>
+                                                                <strong>Paid on:</strong>
+                                                                <?php echo date('M d, Y H:i', strtotime($booking['PaymentDate'])); ?>
+                                                            </p>
+                                                        <?php endif; ?>
                                                     <?php else: ?>
                                                         <p class="no-payment">No payment recorded</p>
                                                     <?php endif; ?>
@@ -792,6 +970,12 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                             <strong>Driver Earned:</strong>
                                                             RM <?php echo number_format($booking['DriverEarnings'], 2); ?>
                                                         </p>
+                                                        <?php if (!empty($booking['DriverPaymentDate'])): ?>
+                                                            <p>
+                                                                <strong>Paid on:</strong>
+                                                                <?php echo date('M d, Y H:i', strtotime($booking['DriverPaymentDate'])); ?>
+                                                            </p>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
@@ -827,24 +1011,12 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $booking['BookingID']; ?>">
-                                                        <i class="fa-solid fa-eye"></i> View
-                                                    </button> -->
-
                                                     <?php if ($booking['BookingStatus'] !== 'Completed' && $booking['BookingStatus'] !== 'Cancelled'): ?>
                                                         <button class="action-btn update-btn"
                                                             data-id="<?php echo $booking['BookingID']; ?>"
                                                             data-current-status="<?php echo $booking['BookingStatus']; ?>">
                                                             <i class="fa-solid fa-sync-alt"></i> Update
                                                         </button>
-                                                    <?php endif; ?>
-
-                                                    <?php if ($booking['BookingStatus'] !== 'Cancelled'): ?>
-                                                        <!-- <button class="action-btn cancel-btn"
-                                                            data-id="<?php echo $booking['BookingID']; ?>"
-                                                            data-current-status="<?php echo $booking['BookingStatus']; ?>">
-                                                            <i class="fa-solid fa-times"></i> Cancel
-                                                        </button> -->
                                                     <?php endif; ?>
                                                 </div>
                                             </td>

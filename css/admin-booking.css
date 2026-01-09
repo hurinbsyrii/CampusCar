@@ -1110,3 +1110,117 @@ textarea:focus {
         margin: 5px 0;
     }
 }
+
+/* Export Button Styles */
+.export-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #20c997, #4ce4b8);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.export-btn:hover {
+    background: linear-gradient(135deg, #1baa80, #3ccca0);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(32, 201, 151, 0.3);
+}
+
+.export-btn:active {
+    transform: translateY(0);
+}
+
+/* Export Loading Indicator */
+.export-loading {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 30px;
+    margin: 20px 25px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    text-align: center;
+    border: 2px solid #20c997;
+    animation: slideIn 0.3s ease;
+}
+
+.export-loading .loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    color: #20c997;
+}
+
+.export-loading .fa-spinner {
+    font-size: 2.5rem;
+    animation: spin 1s linear infinite;
+}
+
+.export-loading span {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Export success animation */
+@keyframes exportSuccess {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.export-btn.exporting {
+    background: linear-gradient(135deg, #17a2b8, #5dc8e8);
+    cursor: not-allowed;
+}
+
+.export-btn.exporting i {
+    animation: spin 1s linear infinite;
+}
+
+/* Responsive adjustments for export button */
+@media (max-width: 768px) {
+    .export-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Additional table export info */
+.export-info {
+    margin: 10px 25px;
+    padding: 15px;
+    background: rgba(124, 155, 201, 0.1);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.export-info i {
+    color: var(--primary-color);
+    margin-right: 8px;
+}

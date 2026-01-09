@@ -451,36 +451,6 @@ while ($row = $booking_status_result->fetch_assoc()) {
                         </div>
                     </div>
                 </section>
-
-                <!-- System Info -->
-                <section class="system-info">
-                    <div class="info-card">
-                        <h3><i class="fa-solid fa-gear"></i> System Information</h3>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="info-label">PHP Version</span>
-                                <span class="info-value"><?php echo phpversion(); ?></span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">MySQL Version</span>
-                                <span class="info-value">
-                                    <?php
-                                    $version = $conn->server_info;
-                                    echo $version;
-                                    ?>
-                                </span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Server Time</span>
-                                <span class="info-value"><?php echo date('Y-m-d H:i:s'); ?></span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Total Tables</span>
-                                <span class="info-value">5</span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </main>
         </div>
     </div>

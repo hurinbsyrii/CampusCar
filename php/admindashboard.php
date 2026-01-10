@@ -30,20 +30,26 @@ $total_rides = $conn->query("SELECT COUNT(*) as count FROM rides")->fetch_assoc(
 $total_bookings = $conn->query("SELECT COUNT(*) as count FROM booking")->fetch_assoc()['count'];
 
 // Get weekly rides (using RideDate from rides table)
+// Get weekly rides (using RideDate from rides table)
+// We get the Start Date of the week to make it user friendly
 $weekly_rides_sql = "SELECT 
     YEARWEEK(RideDate, 1) as week_num,
+    DATE_FORMAT(STR_TO_DATE(CONCAT(YEARWEEK(RideDate, 1), ' Monday'), '%x%v %W'), '%b %d') as start_date,
+DATE_FORMAT(DATE_ADD(STR_TO_DATE(CONCAT(YEARWEEK(RideDate, 1), ' Monday'), '%x%v %W'), INTERVAL 6 DAY), '%b %d') as end_date,
     COUNT(*) as ride_count
     FROM rides 
     WHERE RideDate >= DATE_SUB(CURDATE(), INTERVAL 8 WEEK)
-    GROUP BY YEARWEEK(RideDate, 1)
-    ORDER BY week_num DESC
+    GROUP BY week_num, start_date, end_date
+    ORDER BY week_num ASC
     LIMIT 8";
 
 $weekly_rides_result = $conn->query($weekly_rides_sql);
 $weekly_rides_data = [];
 $weekly_labels = [];
+
 while ($row = $weekly_rides_result->fetch_assoc()) {
-    $weekly_labels[] = 'Week ' . substr($row['week_num'], 4);
+    // Format: "Dec 01 - Dec 07"
+    $weekly_labels[] = $row['start_date'] . ' - ' . $row['end_date'];
     $weekly_rides_data[] = $row['ride_count'];
 }
 
@@ -458,14 +464,15 @@ while ($row = $booking_status_result->fetch_assoc()) {
     <script src="../js/admindashboard.js?v=<?php echo time(); ?>"></script>
     <script>
         // Weekly Rides Chart
+        // Weekly Rides Chart
         const weeklyCtx = document.getElementById('weeklyRidesChart').getContext('2d');
         const weeklyRidesChart = new Chart(weeklyCtx, {
             type: 'line',
             data: {
-                labels: <?php echo json_encode(array_reverse($weekly_labels)); ?>,
+                labels: <?php echo json_encode($weekly_labels); ?>,
                 datasets: [{
                     label: 'Number of Rides',
-                    data: <?php echo json_encode(array_reverse($weekly_rides_data)); ?>,
+                    data: <?php echo json_encode($weekly_rides_data); ?>,
                     borderColor: '#7c9bc9',
                     backgroundColor: 'rgba(124, 155, 201, 0.1)',
                     borderWidth: 3,
@@ -475,9 +482,30 @@ while ($row = $booking_status_result->fetch_assoc()) {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    },
+                    x: { // <--- TAMBAH BAHAGIAN INI
+                        ticks: {
+                            maxRotation: 0, // Paksa label jadi melintang (0 darjah)
+                            minRotation: 0,
+                            autoSkip: true, // Sembunyikan label secara automatik jika terlalu padat
+                            maxTicksLimit: 8 // Hadkan jumlah label yang keluar
+                        }
                     }
                 }
             }

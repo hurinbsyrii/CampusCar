@@ -154,12 +154,12 @@
                     </label>
                 </div>
 
-                <div class="form-group checkbox-group">
+                <!-- <div class="form-group checkbox-group">
                     <input type="checkbox" id="newsletter" name="newsletter">
                     <label for="newsletter">
                         I want to receive updates about CampusCar services and promotions
                     </label>
-                </div>
+                </div> -->
 
                 <button type="submit" class="signup-btn" id="signupBtn">
                     <i class="fa-solid fa-user-plus"></i>

@@ -587,5 +587,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
     <script src="../js/userdashboard.js?v=<?php echo time(); ?>"></script>
     <script src="../js/profile.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>
 <?php $conn->close(); ?>

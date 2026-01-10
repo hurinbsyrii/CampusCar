@@ -253,29 +253,29 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                             <span>Find Ride</span>
                         </a>
                     </li>
+
                     <li class="nav-item" data-section="profile" data-count="0">
                         <a href="userprofile.php" class="nav-link">
                             <i class="fa-solid fa-user"></i>
                             <span>My Profile</span>
                         </a>
                     </li>
-                    <?php if ($is_driver): ?>
+
+                    <?php if ($is_driver && $driver_status === 'approved'): ?>
                         <li class="nav-item" data-section="driver" data-count="0">
                             <a href="driverdashboard.php" class="nav-link">
                                 <i class="fa-solid fa-car-side"></i>
                                 <span>Driver Dashboard</span>
                             </a>
                         </li>
-                    <?php endif; ?>
-                    <?php if ($is_driver && $driver_status === 'approved'): // Tambah check status approved 
-                    ?>
                         <li class="nav-item" data-section="offer" data-count="0">
                             <a href="rideoffer.php" class="nav-link">
                                 <i class="fa-solid fa-plus"></i>
                                 <span>Offer Ride</span>
                             </a>
                         </li>
-                    <?php else: ?>
+
+                    <?php elseif (!$is_driver): ?>
                         <li class="nav-item" data-section="become" data-count="0">
                             <a href="driverregistration.php" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
@@ -294,12 +294,14 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                             <?php endif; ?>
                         </a>
                     </li>
+
                     <li class="nav-item" data-section="todays" data-count="0">
                         <a href="todaysride.php" class="nav-link">
                             <i class="fa-solid fa-calendar-day"></i>
                             <span>Today's Rides</span>
                         </a>
                     </li>
+
                     <li class="nav-item">
                         <a href="logout.php" class="nav-link logout">
                             <i class="fa-solid fa-right-from-bracket"></i>
@@ -344,14 +346,14 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                     <div class="status-card <?php
                                             if (!$is_driver) echo 'driver-inactive';
                                             elseif ($driver_status === 'approved') echo 'driver-active';
-                                            elseif ($driver_status === 'rejected') echo 'driver-rejected'; // Class baru untuk rejected
+                                            elseif ($driver_status === 'rejected') echo 'driver-rejected';
                                             else echo 'driver-pending';
                                             ?>">
                         <div class="status-icon">
                             <i class="fa-solid <?php
                                                 if (!$is_driver) echo 'fa-user-plus';
                                                 elseif ($driver_status === 'approved') echo 'fa-id-card';
-                                                elseif ($driver_status === 'rejected') echo 'fa-ban'; // Icon rejected
+                                                elseif ($driver_status === 'rejected') echo 'fa-ban';
                                                 else echo 'fa-clock';
                                                 ?>"></i>
                         </div>

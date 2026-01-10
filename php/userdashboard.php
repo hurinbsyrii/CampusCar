@@ -240,7 +240,19 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                 </div>
                 <div class="user-details">
                     <h3><?php echo $_SESSION['full_name'] ?? 'User'; ?></h3>
-                    <span class="user-role"><?php echo $is_driver ? 'Driver' : 'Passenger'; ?></span>
+
+                    <span class="user-role">
+                        <?php
+                        // HANYA tunjuk 'Driver' jika status APPROVED
+                        if ($is_driver && $driver_status === 'approved') {
+                            echo 'Driver';
+                        } else {
+                            // Jika Pending, Rejected, atau bukan driver -> Tunjuk Passenger
+                            echo 'Passenger';
+                        }
+                        ?>
+                    </span>
+
                     <span class="user-gender">(<?php echo ucfirst($user_gender); ?>)</span>
                 </div>
             </div>

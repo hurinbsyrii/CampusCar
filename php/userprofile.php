@@ -71,10 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($stmt->execute()) {
         $message = "Profile updated successfully!";
         $message_type = "success";
-        // Update session data if needed
         $_SESSION['phone_number'] = $phone_number;
-
-        // Update user data for display
         $user_data['PhoneNumber'] = $phone_number;
     } else {
         $message = "Error updating profile: " . $conn->error;
@@ -82,8 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     $stmt->close();
 
-    // If user is driver, update driver data
-    if ($is_driver && isset($_POST['car_model']) && isset($_POST['car_plate_number'])) {
+    // If user is driver AND approved, update driver data
+    // Tambah check status approved di sini juga untuk security backend
+    if ($is_driver && isset($driver_data['Status']) && $driver_data['Status'] === 'approved' && isset($_POST['car_model']) && isset($_POST['car_plate_number'])) {
         $car_model = $_POST['car_model'];
         $car_plate_number = $_POST['car_plate_number'];
         $bank_name = $_POST['bank_name'] ?? null;
@@ -103,8 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $ext = pathinfo($_FILES['payment_qr_code']['name'], PATHINFO_EXTENSION);
                     $ext = preg_replace('/[^a-zA-Z0-9]/', '', $ext) ?: 'png';
                     $file_name = 'qr_' . $user_id . '_' . time() . '.' . $ext;
-
-                    // Store uploaded file name for display
                     $uploaded_file_name = $_FILES['payment_qr_code']['name'];
 
                     $upload_dir = __DIR__ . '/../uploads/qrcodes/';
@@ -115,7 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                     if (move_uploaded_file($tmp, $dest_path)) {
                         $payment_qr_code = 'uploads/qrcodes/' . $file_name;
-                        // Delete old QR code if exists
                         if (!empty($driver_data['PaymentQRCode'])) {
                             $old = __DIR__ . '/../' . $driver_data['PaymentQRCode'];
                             if (file_exists($old)) {
@@ -128,12 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $message_type = "error";
                     }
                 } else {
-                    $message = ($message ? $message . " " : "") . "Invalid QR file type. Only JPEG, PNG, GIF, WebP allowed.";
+                    $message = ($message ? $message . " " : "") . "Invalid QR file type.";
                     $message_type = "error";
                 }
-            } else {
-                $message = ($message ? $message . " " : "") . "No uploaded QR file detected.";
-                $message_type = "error";
             }
         }
 
@@ -191,7 +183,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <body>
     <div class="dashboard-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -199,7 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
                 <div class="user-details">
                     <h3><?php echo $_SESSION['full_name'] ?? 'User'; ?></h3>
-                    <span class="user-role"><?php echo $is_driver ? 'Driver' : 'Passenger'; ?></span>
+                    <span class="user-role"><?php echo ($is_driver && $driver_data['Status'] === 'approved') ? 'Driver' : 'Passenger'; ?></span>
                 </div>
             </div>
 
@@ -218,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </a>
                     </li>
 
-                    <?php if ($is_driver): ?>
+                    <?php if ($is_driver && $driver_data['Status'] === 'approved'): ?>
                         <li class="nav-item">
                             <a href="driverdashboard.php" class="nav-link">
                                 <i class="fa-solid fa-car-side"></i>
@@ -227,14 +218,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </li>
                     <?php endif; ?>
 
-                    <?php if ($is_driver): ?>
+                    <?php if ($is_driver && $driver_data['Status'] === 'approved'): ?>
                         <li class="nav-item">
                             <a href="rideoffer.php" class="nav-link">
                                 <i class="fa-solid fa-plus"></i>
                                 <span>Offer Ride</span>
                             </a>
                         </li>
-                    <?php else: ?>
+                    <?php elseif (!$is_driver): ?>
                         <li class="nav-item">
                             <a href="driverregistration.php" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
@@ -242,6 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             </a>
                         </li>
                     <?php endif; ?>
+
                     <li class="nav-item">
                         <a href="mybookings.php" class="nav-link">
                             <div class="nav-link-content">
@@ -269,12 +261,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Header -->
             <header class="dashboard-header">
                 <div class="header-content">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
                         <i class="fa-solid fa-bars"></i>
                     </button>
@@ -295,7 +284,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </header>
 
-            <!-- Main Content -->
             <main class="dashboard-main">
                 <div class="profile-container">
                     <div class="profile-header">
@@ -311,7 +299,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <?php endif; ?>
 
                     <div class="profile-content">
-                        <!-- Personal Information Section -->
                         <div class="profile-section">
                             <div class="section-header">
                                 <h2><i class="fa-solid fa-id-card"></i> Personal Information</h2>
@@ -345,7 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             </div>
                         </div>
 
-                        <!-- Editable Information Section -->
                         <form method="POST" class="profile-section" enctype="multipart/form-data" id="profileForm">
                             <div class="section-header">
                                 <h2><i class="fa-solid fa-edit"></i> Editable Information</h2>
@@ -362,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 </div>
                             </div>
 
-                            <?php if ($is_driver && $driver_data): ?>
+                            <?php if ($is_driver && $driver_data && $driver_data['Status'] === 'approved'): ?>
                                 <div class="driver-section">
                                     <div class="section-header">
                                         <h2><i class="fa-solid fa-car"></i> Driver Information</h2>
@@ -390,7 +376,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         </div>
                                     </div>
 
-                                    <!-- Payment Information Section -->
                                     <div class="payment-section">
                                         <div class="section-header">
                                             <h3><i class="fa-solid fa-credit-card"></i> Payment Information</h3>
@@ -398,7 +383,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         </div>
 
                                         <div class="info-grid">
-                                            <!-- Bank Details -->
                                             <div class="info-item">
                                                 <label for="bank_name">Bank Name</label>
                                                 <input type="text" id="bank_name" name="bank_name"
@@ -423,11 +407,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                                 <small class="field-note">Enter account holder name</small>
                                             </div>
 
-                                            <!-- QR Code Upload -->
                                             <div class="info-item full-width">
                                                 <label for="payment_qr_code">Payment QR Code</label>
                                                 <div class="qr-upload-container">
-                                                    <!-- Current QR Code Display -->
                                                     <?php if (!empty($driver_data['PaymentQRCode'])): ?>
                                                         <div class="current-qr" id="currentQRContainer">
                                                             <p>Current QR Code:</p>
@@ -443,20 +425,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                                         </div>
                                                     <?php endif; ?>
 
-                                                    <!-- QR Upload Area -->
                                                     <div class="qr-upload-box" id="qrUploadBox">
-                                                        <!-- Upload area styled like payment page -->
                                                         <div id="uploadArea" class="upload-area" role="button" tabindex="0">
                                                             <i class="fa-solid fa-cloud-upload-alt"></i>
                                                             <p id="uploadText"><?php echo empty($driver_data['PaymentQRCode']) ? 'Click or drag & drop to upload QR Code' : 'Click or drag & drop to change QR Code'; ?></p>
                                                             <span class="upload-note">Supported: JPEG, PNG, GIF, WebP — Max 5MB</span>
                                                         </div>
-
-                                                        <!-- Hidden file input (still used by existing JS) -->
                                                         <input type="file" id="payment_qr_code" name="payment_qr_code"
                                                             accept="image/*" class="qr-file-input" style="display: none;">
-
-                                                        <!-- Selected File Info (keeps existing IDs used by userprofile.js) -->
                                                         <div id="selectedFileInfo" class="selected-file-info" style="display: none;">
                                                             <div class="selected-file-content">
                                                                 <i class="fa-solid fa-file-image"></i>
@@ -469,11 +445,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                                                 </button>
                                                             </div>
                                                         </div>
-
-                                                        <!-- Live Preview Container -->
                                                         <div id="qrLivePreview" class="qr-live-preview"></div>
-
-                                                        <!-- Preview Hint -->
                                                         <div id="previewHint" class="preview-hint" style="display: none;">
                                                             <i class="fa-solid fa-eye"></i>
                                                             <span>New QR code will replace the current one after saving</span>
@@ -498,7 +470,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             </div>
                         </form>
 
-                        <!-- Account Status Section -->
                         <div class="profile-section">
                             <div class="section-header">
                                 <h2><i class="fa-solid fa-shield-alt"></i> Account Status</h2>
@@ -510,7 +481,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </div>
                                     <div class="status-info">
                                         <h4>Driver Status</h4>
-                                        <p><?php echo $is_driver ? 'Registered Driver' : 'Not Registered as Driver'; ?></p>
+                                        <p><?php echo $is_driver ? 'Registered Application' : 'Not Registered as Driver'; ?></p>
                                         <?php if ($is_driver && $driver_data): ?>
                                             <p class="driver-details">
                                                 <small>Status:
@@ -527,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             Register as Driver
                                         </a>
                                     <?php else: ?>
-                                        <span class="badge-success">Active</span>
+                                        <span class="badge-success">Registered</span>
                                     <?php endif; ?>
                                 </div>
                             </div>

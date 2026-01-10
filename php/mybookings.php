@@ -149,10 +149,30 @@ $conn->close();
                             </a>
                         </li>
                     <?php endif; ?>
+                    <?php if ($is_driver): ?>
+                        <li class="nav-item">
+                            <a href="rideoffer.php" class="nav-link">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Offer Ride</span>
+                            </a>
+                        </li>
+                    <?php else: ?>
+                        <li class="nav-item">
+                            <a href="driverregistration.php" class="nav-link">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span>Become Driver</span>
+                            </a>
+                        </li>
+                    <?php endif; ?>
                     <li class="nav-item active">
                         <a href="mybookings.php" class="nav-link" data-section="bookings" data-count="<?php echo ($passenger_bookings->num_rows ?? 0) + ($driver_bookings ? $driver_bookings->num_rows : 0); ?>">
-                            <i class="fa-solid fa-ticket"></i>
-                            <span>My Bookings</span>
+                            <div class="nav-link-content">
+                                <i class="fa-solid fa-ticket"></i>
+                                <span>My Bookings</span>
+                            </div>
+                            <?php if ($is_driver && isset($driver_pending_count) && $driver_pending_count > 0): ?>
+                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -234,7 +254,7 @@ $conn->close();
 
                         <?php if ($passenger_bookings->num_rows > 0): ?>
                             <div class="bookings-grid">
-                                <?php while ($booking = $passenger_bookings->fetch_assoc()): 
+                                <?php while ($booking = $passenger_bookings->fetch_assoc()):
                                     // Determine status class
                                     $status_class = 'status-' . strtolower($booking['BookingStatus']);
                                     $payment_status = $booking['PaymentStatus'] ?? null;
@@ -303,14 +323,14 @@ $conn->close();
                                                             Cancel
                                                         </button>
                                                     <?php endif; ?>
-                                                    
+
                                                     <?php if ($booking['BookingStatus'] == 'Paid' && $payment_status == 'paid' && !$has_review): ?>
                                                         <a href="review.php?booking_id=<?php echo $booking['BookingID']; ?>" class="btn btn-success">
                                                             <i class="fa-solid fa-star"></i>
                                                             Leave Review
                                                         </a>
                                                     <?php endif; ?>
-                                                    
+
                                                     <button class="btn btn-primary" onclick="contactDriver('<?php echo htmlspecialchars($booking['DriverPhone']); ?>')">
                                                         <i class="fa-solid fa-phone"></i>
                                                         Contact Driver
@@ -346,7 +366,7 @@ $conn->close();
 
                             <?php if ($driver_bookings->num_rows > 0): ?>
                                 <div class="bookings-grid">
-                                    <?php while ($booking = $driver_bookings->fetch_assoc()): 
+                                    <?php while ($booking = $driver_bookings->fetch_assoc()):
                                         $status_class = 'status-' . strtolower($booking['BookingStatus']);
                                     ?>
                                         <div class="booking-card driver-booking" data-booking-id="<?php echo $booking['BookingID']; ?>">

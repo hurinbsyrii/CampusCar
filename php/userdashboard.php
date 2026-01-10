@@ -50,10 +50,24 @@ $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
+
+$driver_pending_count = 0; // Initialize variable
+
 if ($result->num_rows > 0) {
     $is_driver = true;
     $driver_data = $result->fetch_assoc();
     $driver_id = $driver_data['DriverID'];
+
+    // NEW CODE: Count Pending Requests for this driver
+    $pending_sql = "SELECT COUNT(*) as count FROM booking b 
+                    JOIN rides r ON b.RideID = r.RideID 
+                    WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+    $p_stmt = $conn->prepare($pending_sql);
+    $p_stmt->bind_param("i", $driver_id);
+    $p_stmt->execute();
+    $p_result = $p_stmt->get_result();
+    $driver_pending_count = $p_result->fetch_assoc()['count'];
+    $p_stmt->close();
 }
 $stmt->close();
 
@@ -265,8 +279,13 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                     <?php endif; ?>
                     <li class="nav-item" data-section="bookings" data-count="<?php echo $booking_count; ?>">
                         <a href="mybookings.php" class="nav-link">
-                            <i class="fa-solid fa-ticket"></i>
-                            <span>My Bookings</span>
+                            <div class="nav-link-content">
+                                <i class="fa-solid fa-ticket"></i>
+                                <span>My Bookings</span>
+                            </div>
+                            <?php if ($is_driver && $driver_pending_count > 0): ?>
+                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item" data-section="todays" data-count="0">

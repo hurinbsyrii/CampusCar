@@ -48,6 +48,8 @@ $conn->query($expire_sql);
 
 // Check if user is a driver
 $is_driver = false;
+$driver_pending_count = 0; // Initialize count
+
 $driver_check_sql = "SELECT DriverID FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
@@ -56,6 +58,17 @@ $result = $stmt->get_result();
 if ($result->num_rows > 0) {
     $is_driver = true;
     $driver = $result->fetch_assoc();
+
+    // NEW LOGIC: Count Pending Requests
+    $pending_sql = "SELECT COUNT(*) as count FROM booking b 
+                    JOIN rides r ON b.RideID = r.RideID 
+                    WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+    $p_stmt = $conn->prepare($pending_sql);
+    $p_stmt->bind_param("i", $driver['DriverID']);
+    $p_stmt->execute();
+    $p_result = $p_stmt->get_result();
+    $driver_pending_count = $p_result->fetch_assoc()['count'];
+    $p_stmt->close();
 }
 $stmt->close();
 
@@ -164,8 +177,13 @@ $conn->close();
                     <?php endif; ?>
                     <li class="nav-item">
                         <a href="mybookings.php" class="nav-link">
-                            <i class="fa-solid fa-ticket"></i>
-                            <span>My Bookings</span>
+                            <div class="nav-link-content">
+                                <i class="fa-solid fa-ticket"></i>
+                                <span>My Bookings</span>
+                            </div>
+                            <?php if ($is_driver && $driver_pending_count > 0): ?>
+                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+                            <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item active" data-section="todays" data-count="<?php echo count($rides_by_id); ?>">

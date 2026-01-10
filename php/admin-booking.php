@@ -398,7 +398,7 @@ $today_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM
 $month_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE MONTH(BookingDateTime) = MONTH(CURDATE()) AND YEAR(BookingDateTime) = YEAR(CURDATE()) AND BookingStatus IN ('Paid', 'Completed')")->fetch_assoc()['total'];
 
 // Analytics data
-// Popular routes
+// Popular routes - KEPT AS REQUESTED
 $popular_routes = $conn->query("
     SELECT CONCAT(r.FromLocation, ' → ', r.ToLocation) as route, 
            COUNT(b.BookingID) as booking_count,
@@ -410,18 +410,6 @@ $popular_routes = $conn->query("
     GROUP BY r.FromLocation, r.ToLocation
     ORDER BY booking_count DESC
     LIMIT 5
-")->fetch_all(MYSQLI_ASSOC);
-
-// Peak booking times
-$peak_times = $conn->query("
-    SELECT HOUR(BookingDateTime) as hour,
-           COUNT(*) as booking_count,
-           DAYNAME(BookingDateTime) as day_name
-    FROM booking
-    WHERE BookingStatus IN ('Paid', 'Completed')
-    GROUP BY HOUR(BookingDateTime), DAYNAME(BookingDateTime)
-    ORDER BY booking_count DESC
-    LIMIT 10
 ")->fetch_all(MYSQLI_ASSOC);
 
 // Booking trends (last 7 days)
@@ -479,7 +467,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
 
 <body>
     <div class="admin-container">
-        <!-- Sidebar -->
         <aside class="admin-sidebar">
             <div class="sidebar-header">
                 <div class="admin-avatar">
@@ -539,9 +526,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="admin-main">
-            <!-- Header -->
             <header class="admin-header">
                 <div class="header-content">
                     <button id="sidebarToggle" class="sidebar-toggle">
@@ -564,9 +549,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                 </div>
             </header>
 
-            <!-- Booking Management Content -->
             <main class="dashboard-content">
-                <!-- Stats Overview -->
                 <section class="stats-section">
                     <h2><i class="fa-solid fa-chart-line"></i> Booking Analytics</h2>
                     <div class="stats-grid">
@@ -619,14 +602,12 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                     </div>
                 </section>
 
-                <!-- Analytics Section -->
                 <section class="analytics-section">
                     <div class="section-header">
                         <h3><i class="fa-solid fa-chart-bar"></i> Booking Insights</h3>
                     </div>
 
                     <div class="analytics-grid">
-                        <!-- Popular Routes -->
                         <div class="analytics-card">
                             <div class="analytics-header">
                                 <h4><i class="fa-solid fa-route"></i> Popular Routes</h4>
@@ -657,7 +638,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                             </div>
                         </div>
 
-                        <!-- Payment Distribution -->
                         <div class="analytics-card">
                             <div class="analytics-header">
                                 <h4><i class="fa-solid fa-credit-card"></i> Payment Methods</h4>
@@ -688,8 +668,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                             </div>
                         </div>
 
-                        <!-- Booking Trends -->
-                        <div class="analytics-card">
+                        <!-- <div class="analytics-card">
                             <div class="analytics-header">
                                 <h4><i class="fa-solid fa-chart-line"></i> Recent Trends</h4>
                             </div>
@@ -717,42 +696,11 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                     <p class="no-data">No trend data available</p>
                                 <?php endif; ?>
                             </div>
-                        </div>
+                        </div> -->
 
-                        <!-- Peak Times -->
-                        <div class="analytics-card">
-                            <div class="analytics-header">
-                                <h4><i class="fa-solid fa-clock"></i> Peak Booking Times</h4>
-                            </div>
-                            <div class="analytics-body">
-                                <?php if (!empty($peak_times)): ?>
-                                    <table class="analytics-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Time</th>
-                                                <th>Day</th>
-                                                <th>Bookings</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($peak_times as $peak): ?>
-                                                <tr>
-                                                    <td><?php echo $peak['hour'] . ':00'; ?></td>
-                                                    <td><?php echo $peak['day_name']; ?></td>
-                                                    <td><?php echo $peak['booking_count']; ?></td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                <?php else: ?>
-                                    <p class="no-data">No peak time data available</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
                     </div>
                 </section>
 
-                <!-- Bookings Section -->
                 <section class="bookings-section">
                     <div class="section-header">
                         <h3><i class="fa-solid fa-list"></i> All Bookings</h3>
@@ -805,7 +753,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
 
-                                    <!-- Export CSV Button -->
                                     <button type="button" id="exportCsvBtn" class="export-btn">
                                         <i class="fa-solid fa-file-export"></i> Export CSV
                                     </button>
@@ -827,7 +774,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                         <?php unset($_SESSION['notification']); ?>
                     <?php endif; ?>
 
-                    <!-- Export Loading Indicator -->
                     <div id="exportLoading" class="export-loading" style="display: none;">
                         <div class="loading-spinner">
                             <i class="fa-solid fa-spinner fa-spin"></i>
@@ -1035,7 +981,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                             </tbody>
                         </table>
 
-                        <!-- Pagination -->
                         <div class="pagination">
                             <button class="pagination-btn disabled">
                                 <i class="fa-solid fa-chevron-left"></i> Previous
@@ -1048,7 +993,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                     </div>
                 </section>
 
-                <!-- Status Update Modal -->
                 <div id="statusModal" class="modal">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -1090,7 +1034,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                     </div>
 
                                     <div class="status-options" id="statusOptions">
-                                        <!-- Status options will be loaded here -->
                                     </div>
                                 </div>
 

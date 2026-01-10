@@ -210,33 +210,6 @@ function getBookingStatistics($conn)
     // Cancellation rate
     $stats['cancellation_rate'] = $stats['total'] > 0 ? ($stats['cancelled'] / $stats['total'] * 100) : 0;
 
-    // Recent activity (last 30 days)
-    $stats['recent_activity'] = $conn->query("
-        SELECT 
-            DATE(BookingDateTime) as date,
-            COUNT(*) as bookings,
-            SUM(CASE WHEN BookingStatus IN ('Paid', 'Completed') THEN TotalPrice ELSE 0 END) as revenue,
-            SUM(CASE WHEN BookingStatus = 'Cancelled' THEN 1 ELSE 0 END) as cancelled
-        FROM booking
-        WHERE BookingDateTime >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY DATE(BookingDateTime)
-        ORDER BY date DESC
-    ")->fetch_all(MYSQLI_ASSOC);
-
-    // Popular booking times
-    $stats['peak_times'] = $conn->query("
-        SELECT 
-            HOUR(BookingDateTime) as hour,
-            DAYNAME(BookingDateTime) as day,
-            COUNT(*) as bookings,
-            AVG(TotalPrice) as avg_price
-        FROM booking
-        WHERE BookingStatus IN ('Paid', 'Completed')
-        GROUP BY HOUR(BookingDateTime), DAYNAME(BookingDateTime)
-        ORDER BY bookings DESC
-        LIMIT 10
-    ")->fetch_all(MYSQLI_ASSOC);
-
     // Top users by bookings
     $stats['top_users'] = $conn->query("
         SELECT 

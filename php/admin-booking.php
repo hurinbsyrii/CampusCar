@@ -21,14 +21,14 @@ if ($conn->connect_error) {
 
 // Handle Export CSV
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'export_csv') {
-    // Get current filter parameters
-    $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
-    $status_filter = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : '';
-    $date_from = isset($_GET['date_from']) ? $conn->real_escape_string($_GET['date_from']) : '';
-    $date_to = isset($_GET['date_to']) ? $conn->real_escape_string($_GET['date_to']) : '';
-    $payment_method = isset($_GET['payment_method']) ? $conn->real_escape_string($_GET['payment_method']) : '';
-    $min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : '';
-    $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
+    // TUKAR SEMUA $_GET KEPADA $_POST DI SINI
+    $search_term = isset($_POST['search']) ? $conn->real_escape_string($_POST['search']) : '';
+    $status_filter = isset($_POST['status']) ? $conn->real_escape_string($_POST['status']) : '';
+    $date_from = isset($_POST['date_from']) ? $conn->real_escape_string($_POST['date_from']) : '';
+    $date_to = isset($_POST['date_to']) ? $conn->real_escape_string($_POST['date_to']) : '';
+    $payment_method = isset($_POST['payment_method']) ? $conn->real_escape_string($_POST['payment_method']) : '';
+    $min_price = isset($_POST['min_price']) ? floatval($_POST['min_price']) : '';
+    $max_price = isset($_POST['max_price']) ? floatval($_POST['max_price']) : '';
 
     // Build export query with same filters as main query
     $export_sql = "SELECT 

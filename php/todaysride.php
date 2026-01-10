@@ -253,14 +253,21 @@ $conn->close();
                                 $status_text = '';
                                 $status_icon = 'fa-circle';
 
-                                if ($ride['Status'] == 'in_progress') {
+                                // ... dalam foreach loop ...
+
+                                if ($ride['Status'] == 'expired') {
+                                    // --- TAMBAHAN UNTUK EXPIRED ---
+                                    $status_class = 'status-expired';
+                                    $status_text = 'Expired';
+                                    $status_icon = 'fa-times-circle';
+                                } elseif ($ride['Status'] == 'in_progress') {
                                     $status_class = 'status-in-progress';
                                     $status_text = 'In Progress';
                                 } elseif ($ride['Status'] == 'completed') {
                                     $status_class = 'status-completed';
                                     $status_text = 'Completed';
                                 } else {
-                                    // Available rides that haven't started yet
+                                    // Available rides logic
                                     $status_class = $can_start_ride ? 'status-available' : 'status-not-yet-started';
                                     $status_text = $can_start_ride ? 'Available' : 'Not Yet Started';
                                 }
@@ -322,7 +329,12 @@ $conn->close();
                                         <?php if ($is_user_driver): ?>
                                             <!-- Driver Actions -->
                                             <div class="driver-actions">
-                                                <?php if ($ride['Status'] == 'available'): ?>
+                                                <?php if ($ride['Status'] == 'expired'): ?>
+                                                    <button class="btn btn-end-ride disabled" disabled style="background-color: #dc3545; opacity: 0.7;">
+                                                        <i class="fa-solid fa-ban"></i> Ride Expired
+                                                    </button>
+
+                                                <?php elseif ($ride['Status'] == 'available'): ?>
                                                     <?php if ($can_start_ride): ?>
                                                         <button class="btn btn-start-ride" onclick="startRide(<?php echo $ride['RideID']; ?>)">
                                                             <i class="fa-solid fa-play"></i>
@@ -368,76 +380,77 @@ $conn->close();
                                                 <?php if ($ride['BookingID']): ?>
                                                     <?php if ($ride['BookingStatus'] == 'Confirmed'): ?>
                                                         <?php if ($ride['Status'] == 'completed' && $ride['BookingStatus'] != 'Paid'): ?>
-                                                            <!-- Payment moved to separate page -->
                                                             <span class="status-pending-payment">Payment Due</span>
                                                             <a class="btn btn-payment" href="payment.php?booking_id=<?php echo $ride['BookingID']; ?>">
-                                                                <i class="fa-solid fa-credit-card"></i>
-                                                                Make Payment
+                                                                <i class="fa-solid fa-credit-card"></i> Make Payment
                                                             </a>
                                                             <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                                <i class="fa-solid fa-phone"></i>
-                                                                Contact Driver
+                                                                <i class="fa-solid fa-phone"></i> Contact Driver
                                                             </button>
                                                         <?php elseif ($ride['Status'] == 'in_progress'): ?>
-                                                            <!-- Ride in progress - NO payment button -->
                                                             <span class="status-in-progress-text">Ride in Progress</span>
                                                             <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                                <i class="fa-solid fa-phone"></i>
-                                                                Contact Driver
+                                                                <i class="fa-solid fa-phone"></i> Contact Driver
                                                             </button>
                                                         <?php elseif ($ride['Status'] == 'completed' && $ride['BookingStatus'] == 'Paid'): ?>
-                                                            <!-- Already paid -->
                                                             <span class="status-paid-text">Payment Completed</span>
                                                             <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                                <i class="fa-solid fa-phone"></i>
-                                                                Contact Driver
+                                                                <i class="fa-solid fa-phone"></i> Contact Driver
                                                             </button>
                                                         <?php else: ?>
-                                                            <!-- Ride available but not started - NO payment button -->
                                                             <span class="status-available-text">Ride Available</span>
                                                             <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                                <i class="fa-solid fa-phone"></i>
-                                                                Contact Driver
+                                                                <i class="fa-solid fa-phone"></i> Contact Driver
                                                             </button>
                                                         <?php endif; ?>
+
                                                     <?php elseif ($ride['BookingStatus'] == 'Pending'): ?>
-                                                        <span class="status-pending">Waiting for driver confirmation</span>
-                                                        <button class="btn btn-outline" onclick="cancelBooking(<?php echo $ride['BookingID']; ?>)">
-                                                            <i class="fa-solid fa-times"></i>
-                                                            Cancel Request
-                                                        </button>
+                                                        <?php if ($ride['Status'] == 'expired'): ?>
+                                                            <span class="status-cancelled-text" style="color: #dc3545;">Ride Expired (Booking Void)</span>
+                                                            <button class="btn btn-outline disabled" disabled>
+                                                                <i class="fa-solid fa-ban"></i> Request Failed
+                                                            </button>
+                                                        <?php else: ?>
+                                                            <span class="status-pending">Waiting for driver confirmation</span>
+                                                            <button class="btn btn-outline" onclick="cancelBooking(<?php echo $ride['BookingID']; ?>)">
+                                                                <i class="fa-solid fa-times"></i> Cancel Request
+                                                            </button>
+                                                        <?php endif; ?>
+
                                                     <?php elseif ($ride['BookingStatus'] == 'Completed'): ?>
                                                         <span class="status-pending-payment">Payment Due</span>
                                                         <a class="btn btn-payment" href="payment.php?booking_id=<?php echo $ride['BookingID']; ?>">
-                                                            <i class="fa-solid fa-credit-card"></i>
-                                                            Make Payment
+                                                            <i class="fa-solid fa-credit-card"></i> Make Payment
                                                         </a>
                                                         <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                            <i class="fa-solid fa-phone"></i>
-                                                            Contact Driver
+                                                            <i class="fa-solid fa-phone"></i> Contact Driver
                                                         </button>
+
                                                     <?php elseif ($ride['BookingStatus'] == 'Paid'): ?>
                                                         <span class="status-paid-text">Ride Completed & Paid</span>
+
                                                     <?php elseif ($ride['BookingStatus'] == 'Cancelled'): ?>
-                                                        <!-- Cancelled bookings should NOT appear here due to SQL filtering -->
                                                         <span class="status-cancelled-text">Booking Cancelled</span>
                                                     <?php endif; ?>
+
                                                 <?php else: ?>
-                                                    <!-- Passenger hasn't booked this ride -->
-                                                    <?php if ($ride['Status'] == 'available'): ?>
+                                                    <?php if ($ride['Status'] == 'expired'): ?>
+                                                        <button class="btn btn-primary disabled" disabled style="background-color: #6c757d; border-color: #6c757d; cursor: not-allowed; opacity: 0.8;">
+                                                            <i class="fa-solid fa-ban"></i> Ride Expired
+                                                        </button>
+                                                    <?php elseif ($ride['Status'] == 'available'): ?>
                                                         <button class="btn btn-primary" onclick="bookRide(<?php echo $ride['RideID']; ?>)">
-                                                            <i class="fa-solid fa-ticket"></i>
-                                                            Book This Ride
+                                                            <i class="fa-solid fa-ticket"></i> Book This Ride
                                                         </button>
                                                     <?php elseif ($ride['Status'] == 'in_progress'): ?>
                                                         <span class="status-in-progress-text">Ride in Progress</span>
                                                         <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
-                                                            <i class="fa-solid fa-phone"></i>
-                                                            Contact Driver
+                                                            <i class="fa-solid fa-phone"></i> Contact Driver
                                                         </button>
                                                     <?php else: ?>
                                                         <span class="status-completed-text">Ride Completed</span>
                                                     <?php endif; ?>
+
                                                 <?php endif; ?>
                                             </div>
                                         <?php endif; ?>

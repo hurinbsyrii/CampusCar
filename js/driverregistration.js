@@ -121,10 +121,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Add these to the existing JavaScript file
 
-// Bank account number validation
+/// Bank account number validation
 function validateBankAccount(accountNumber) {
-  // Malaysian bank account numbers are typically 10-16 digits
-  const accountRegex = /^\d{10,16}$/;
+  // Membenarkan digit sahaja, panjang antara 10 hingga 20 digit
+  // BSN ada 16 digit, jadi 20 adalah limit selamat
+  const accountRegex = /^\d{10,20}$/;
   return accountRegex.test(accountNumber);
 }
 
@@ -177,9 +178,10 @@ function validateField(field) {
     case "accountNumber":
       if (value.length > 0) {
         isValid = validateBankAccount(value);
+        // Kemaskini mesej error supaya user tahu limit
         errorMessage = isValid
           ? ""
-          : "Please enter a valid bank account number (10-16 digits)";
+          : "Invalid account number. Must be 10-20 digits.";
       }
       break;
 

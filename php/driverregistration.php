@@ -144,9 +144,18 @@ $conn->close();
                                 Account Number *
                             </label>
                             <div class="input-group">
-                                <input type="text" id="accountNumber" name="accountNumber" placeholder="e.g., 1234567890" required>
+                                <input
+                                    type="text"
+                                    id="accountNumber"
+                                    name="accountNumber"
+                                    placeholder="e.g., 1234567890"
+                                    maxlength="20"
+                                    minlength="10"
+                                    inputmode="numeric"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                    required>
                             </div>
-                            <small class="help-text">Enter your bank account number</small>
+                            <small class="help-text">Enter your bank account number (10-20 digits)</small>
                             <small class="error-text" id="accountNumberError"></small>
                         </div>
 

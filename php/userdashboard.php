@@ -46,7 +46,9 @@ if ($user_result->num_rows > 0) {
 }
 $stmt->close();
 
-$driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?"; // Ambil Status sekali
+// ASAL: $driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?";
+// BARU: Tambah RejectionReason
+$driver_check_sql = "SELECT DriverID, Status, RejectionReason FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -59,6 +61,7 @@ if ($result->num_rows > 0) {
     $driver_data = $result->fetch_assoc();
     $driver_id = $driver_data['DriverID'];
     $driver_status = $driver_data['Status']; // Simpan status driver
+    $rejection_reason = $driver_data['RejectionReason'] ?? 'Contact admin for details.';
 
     // NEW CODE: Count Pending Requests for this driver
     $pending_sql = "SELECT COUNT(*) as count FROM booking b 
@@ -338,17 +341,31 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
             <main class="dashboard-main">
                 <!-- Driver Status Section -->
                 <section class="status-section">
-                    <div class="status-card <?php echo $is_driver ? ($driver_status === 'approved' ? 'driver-active' : 'driver-pending') : 'driver-inactive'; ?>">
+                    <div class="status-card <?php
+                                            if (!$is_driver) echo 'driver-inactive';
+                                            elseif ($driver_status === 'approved') echo 'driver-active';
+                                            elseif ($driver_status === 'rejected') echo 'driver-rejected'; // Class baru untuk rejected
+                                            else echo 'driver-pending';
+                                            ?>">
                         <div class="status-icon">
-                            <i class="fa-solid <?php echo $is_driver ? ($driver_status === 'approved' ? 'fa-id-card' : 'fa-clock') : 'fa-user-plus'; ?>"></i>
+                            <i class="fa-solid <?php
+                                                if (!$is_driver) echo 'fa-user-plus';
+                                                elseif ($driver_status === 'approved') echo 'fa-id-card';
+                                                elseif ($driver_status === 'rejected') echo 'fa-ban'; // Icon rejected
+                                                else echo 'fa-clock';
+                                                ?>"></i>
                         </div>
+
                         <div class="status-content">
                             <?php if (!$is_driver): ?>
                                 <h3>Become a Driver</h3>
                                 <p>Register as a driver to start offering rides</p>
                             <?php elseif ($driver_status === 'pending'): ?>
                                 <h3>Verification Pending</h3>
-                                <p>Your application is being reviewed by admin. You can offer rides once approved.</p>
+                                <p>Your application is being reviewed by admin.</p>
+                            <?php elseif ($driver_status === 'rejected'): ?>
+                                <h3>Application Rejected</h3>
+                                <p>Your driver application was not approved.</p>
                             <?php else: ?>
                                 <h3>Registered Driver</h3>
                                 <p>You can now offer rides to other students</p>
@@ -362,6 +379,10 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                         <?php elseif ($driver_status === 'pending'): ?>
                             <button class="status-btn btn-warning" onclick="showPendingAlert()">
                                 <i class="fa-solid fa-clock"></i> Status: Pending
+                            </button>
+                        <?php elseif ($driver_status === 'rejected'): ?>
+                            <button class="status-btn btn-danger" onclick="showRejectedAlert('<?php echo htmlspecialchars(addslashes($rejection_reason)); ?>')">
+                                <i class="fa-solid fa-circle-exclamation"></i> View Reason
                             </button>
                         <?php else: ?>
                             <button class="status-btn btn-success" onclick="offerRide()">

@@ -273,3 +273,20 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 });
+
+// Function alert untuk Pending
+function showPendingAlert() {
+  showNotification(
+    "Your driver registration is still pending approval.",
+    "warning"
+  );
+}
+
+// Function alert untuk Rejected (BARU)
+function showRejectedAlert(reason) {
+  // Paparkan notifikasi error dengan sebab
+  showNotification("Application Rejected: " + reason, "error");
+
+  // Atau boleh guna alert browser biasa jika mesej terlalu panjang
+  // alert("Application Rejected.\nReason: " + reason);
+}

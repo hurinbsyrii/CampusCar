@@ -1414,3 +1414,28 @@ body {
     cursor: default;
     /* Tak nampak macam boleh klik sangat */
 }
+
+/* Style untuk Rejected Status */
+.driver-rejected {
+    background: linear-gradient(135deg, #fcebea 0%, #fbd5d5 100%);
+    border-left: 5px solid #e53e3e;
+}
+
+.btn-danger {
+    background-color: #e53e3e;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-danger:hover {
+    background-color: #c53030;
+    transform: translateY(-2px);
+}

@@ -511,12 +511,6 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="admin-reports.php" class="nav-link">
-                            <i class="fa-solid fa-chart-pie"></i>
-                            <span>Reports</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a href="../php/logout.php" class="nav-link logout">
                             <i class="fa-solid fa-right-from-bracket"></i>
                             <span>Logout</span>

@@ -28,10 +28,7 @@ $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 $current_time = date('H:i:s'); // Current time for time checking
 
-// --- TAMBAHAN: AUTO-EXPIRE RIDES ---
-// Logic: Jika masa dah lepas DAN status masih 'available' DAN tiada booking yang confirm/paid
-// Maka tukar status jadi 'expired' automatik.
-
+// --- AUTO-EXPIRE RIDES LOGIC ---
 $currentDateTimeFull = date('Y-m-d H:i:s');
 
 $expire_sql = "UPDATE rides 
@@ -48,9 +45,11 @@ $conn->query($expire_sql);
 
 // Check if user is a driver
 $is_driver = false;
+$driver = null;
 $driver_pending_count = 0; // Initialize count
 
-$driver_check_sql = "SELECT DriverID FROM driver WHERE UserID = ?";
+// KEMASKINI: Ambil Status sekali
+$driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -59,16 +58,18 @@ if ($result->num_rows > 0) {
     $is_driver = true;
     $driver = $result->fetch_assoc();
 
-    // NEW LOGIC: Count Pending Requests
-    $pending_sql = "SELECT COUNT(*) as count FROM booking b 
-                    JOIN rides r ON b.RideID = r.RideID 
-                    WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
-    $p_stmt = $conn->prepare($pending_sql);
-    $p_stmt->bind_param("i", $driver['DriverID']);
-    $p_stmt->execute();
-    $p_result = $p_stmt->get_result();
-    $driver_pending_count = $p_result->fetch_assoc()['count'];
-    $p_stmt->close();
+    // Only count pending requests if approved
+    if ($driver['Status'] === 'approved') {
+        $pending_sql = "SELECT COUNT(*) as count FROM booking b 
+                        JOIN rides r ON b.RideID = r.RideID 
+                        WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+        $p_stmt = $conn->prepare($pending_sql);
+        $p_stmt->bind_param("i", $driver['DriverID']);
+        $p_stmt->execute();
+        $p_result = $p_stmt->get_result();
+        $driver_pending_count = $p_result->fetch_assoc()['count'];
+        $p_stmt->close();
+    }
 }
 $stmt->close();
 
@@ -91,8 +92,10 @@ $today_rides_sql = "SELECT r.*, u.FullName as DriverName, d.CarModel, d.CarPlate
                              r.DepartureTime";
 
 $stmt = $conn->prepare($today_rides_sql);
-$driver_id = $is_driver ? $driver['DriverID'] : 0;
-$stmt->bind_param("isii", $user_id, $today, $driver_id, $user_id);
+// Only use driver_id in query if approved
+$driver_id_param = ($is_driver && $driver['Status'] === 'approved') ? $driver['DriverID'] : 0;
+
+$stmt->bind_param("isii", $user_id, $today, $driver_id_param, $user_id);
 $stmt->execute();
 $today_rides = $stmt->get_result();
 
@@ -124,7 +127,6 @@ $conn->close();
 
 <body>
     <div class="dashboard-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -132,42 +134,39 @@ $conn->close();
                 </div>
                 <div class="user-details">
                     <h3><?php echo $_SESSION['full_name'] ?? 'User'; ?></h3>
-                    <span class="user-role"><?php echo $is_driver ? 'Driver' : 'Passenger'; ?></span>
+                    <span class="user-role"><?php echo ($is_driver && $driver['Status'] === 'approved') ? 'Driver' : 'Passenger'; ?></span>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="nav-item" data-section="findride" data-count="<?php echo $rides_result->num_rows ?? 0; ?>">
-                        <a href="userdashboard.php" class="nav-link">
+                    <li class="nav-item">
+                        <a href="userdashboard.php" class="nav-link" data-section="findride">
                             <i class="fa-solid fa-gauge"></i>
                             <span>Find Ride</span>
                         </a>
                     </li>
-                    <li class="nav-item" data-section="profile" data-count="0">
-                        <a href="userprofile.php" class="nav-link">
+                    <li class="nav-item">
+                        <a href="userprofile.php" class="nav-link" data-section="profile">
                             <i class="fa-solid fa-user"></i>
                             <span>My Profile</span>
                         </a>
                     </li>
 
-                    <?php if ($is_driver): ?>
+                    <?php if ($is_driver && $driver['Status'] === 'approved'): ?>
                         <li class="nav-item">
-                            <a href="driverdashboard.php" class="nav-link">
+                            <a href="driverdashboard.php" class="nav-link" data-section="driver">
                                 <i class="fa-solid fa-car-side"></i>
                                 <span>Driver Dashboard</span>
                             </a>
                         </li>
-                    <?php endif; ?>
-
-                    <?php if ($is_driver): ?>
                         <li class="nav-item">
                             <a href="rideoffer.php" class="nav-link">
                                 <i class="fa-solid fa-plus"></i>
                                 <span>Offer Ride</span>
                             </a>
                         </li>
-                    <?php else: ?>
+                    <?php elseif (!$is_driver): ?>
                         <li class="nav-item">
                             <a href="driverregistration.php" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
@@ -176,18 +175,18 @@ $conn->close();
                         </li>
                     <?php endif; ?>
                     <li class="nav-item">
-                        <a href="mybookings.php" class="nav-link">
+                        <a href="mybookings.php" class="nav-link" data-section="bookings">
                             <div class="nav-link-content">
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && $driver_pending_count > 0): ?>
+                            <?php if ($is_driver && $driver['Status'] === 'approved' && $driver_pending_count > 0): ?>
                                 <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
                             <?php endif; ?>
                         </a>
                     </li>
-                    <li class="nav-item active" data-section="todays" data-count="<?php echo count($rides_by_id); ?>">
-                        <a href="todaysride.php" class="nav-link">
+                    <li class="nav-item active">
+                        <a href="todaysride.php" class="nav-link" data-section="todays" data-count="<?php echo count($rides_by_id); ?>">
                             <i class="fa-solid fa-calendar-day"></i>
                             <span>Today's Ride</span>
                         </a>
@@ -202,9 +201,7 @@ $conn->close();
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Header -->
             <header class="dashboard-header">
                 <div class="header-content">
                     <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
@@ -227,16 +224,13 @@ $conn->close();
                 </div>
             </header>
 
-            <!-- Main Content -->
             <main class="dashboard-main">
                 <div class="todays-rides-container">
-                    <!-- Page Header -->
                     <div class="page-header">
                         <h1><i class="fa-solid fa-calendar-day"></i> Today's Rides</h1>
                         <p>Manage your rides and bookings for today - <?php echo date('F j, Y'); ?></p>
                         <p class="current-time"><i class="fa-solid fa-clock"></i> Current time: <span id="currentTime"><?php echo date('g:i A'); ?></span></p>
 
-                        <!-- Status Legend -->
                         <div class="status-legend">
                             <div class="legend-item">
                                 <span class="legend-dot status-available"></span>
@@ -260,7 +254,10 @@ $conn->close();
                     <?php if (!empty($rides_by_id)): ?>
                         <div class="rides-grid">
                             <?php foreach ($rides_by_id as $ride):
-                                $is_user_driver = $is_driver && isset($driver['DriverID']) && $driver['DriverID'] == $ride['DriverID'];
+                                // KEMASKINI: Hanya anggap user sebagai driver card ini jika status approved
+                                $is_user_driver = $is_driver && isset($driver['DriverID']) &&
+                                    $driver['Status'] === 'approved' &&
+                                    $driver['DriverID'] == $ride['DriverID'];
 
                                 // Check if current time is after departure time
                                 $departure_time = $ride['DepartureTime'];
@@ -271,10 +268,7 @@ $conn->close();
                                 $status_text = '';
                                 $status_icon = 'fa-circle';
 
-                                // ... dalam foreach loop ...
-
                                 if ($ride['Status'] == 'expired') {
-                                    // --- TAMBAHAN UNTUK EXPIRED ---
                                     $status_class = 'status-expired';
                                     $status_text = 'Expired';
                                     $status_icon = 'fa-times-circle';
@@ -285,7 +279,6 @@ $conn->close();
                                     $status_class = 'status-completed';
                                     $status_text = 'Completed';
                                 } else {
-                                    // Available rides logic
                                     $status_class = $can_start_ride ? 'status-available' : 'status-not-yet-started';
                                     $status_text = $can_start_ride ? 'Available' : 'Not Yet Started';
                                 }
@@ -342,10 +335,8 @@ $conn->close();
                                         </div>
                                     <?php endif; ?>
 
-                                    <!-- Action Buttons based on user role -->
                                     <div class="ride-actions">
                                         <?php if ($is_user_driver): ?>
-                                            <!-- Driver Actions -->
                                             <div class="driver-actions">
                                                 <?php if ($ride['Status'] == 'expired'): ?>
                                                     <button class="btn btn-end-ride disabled" disabled style="background-color: #dc3545; opacity: 0.7;">
@@ -393,7 +384,6 @@ $conn->close();
                                                 </button>
                                             </div>
                                         <?php else: ?>
-                                            <!-- Passenger Actions -->
                                             <div class="passenger-actions">
                                                 <?php if ($ride['BookingID']): ?>
                                                     <?php if ($ride['BookingStatus'] == 'Confirmed'): ?>
@@ -474,12 +464,10 @@ $conn->close();
                                         <?php endif; ?>
                                     </div>
 
-                                    <!-- Passengers List (for drivers) -->
                                     <?php if ($is_user_driver): ?>
                                         <div class="passengers-section" id="passengers-<?php echo $ride['RideID']; ?>" style="display: none;">
                                             <h4><i class="fa-solid fa-users"></i> Passengers</h4>
                                             <div class="passengers-list">
-                                                <!-- Passengers will be loaded via AJAX -->
                                                 <div class="loading-passengers">
                                                     <i class="fa-solid fa-spinner fa-spin"></i>
                                                     Loading passengers...
@@ -497,15 +485,15 @@ $conn->close();
                             </div>
                             <h3>No Rides Today</h3>
                             <p>You don't have any active rides scheduled for today.</p>
-                            <?php if (!$is_driver): ?>
-                                <a href="userdashboard.php" class="btn btn-primary">
-                                    <i class="fa-solid fa-car"></i>
-                                    Find Rides
-                                </a>
-                            <?php else: ?>
+                            <?php if ($is_driver && $driver['Status'] === 'approved'): ?>
                                 <a href="rideoffer.php" class="btn btn-primary">
                                     <i class="fa-solid fa-plus"></i>
                                     Offer a Ride
+                                </a>
+                            <?php else: ?>
+                                <a href="userdashboard.php" class="btn btn-primary">
+                                    <i class="fa-solid fa-car"></i>
+                                    Find Rides
                                 </a>
                             <?php endif; ?>
                         </div>

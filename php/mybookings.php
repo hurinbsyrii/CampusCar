@@ -21,6 +21,7 @@ $user_id = $_SESSION['user_id'];
 
 // Check if user is a driver
 $is_driver = false;
+$driver = null; // Initialize driver variable
 $driver_check_sql = "SELECT * FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
@@ -33,7 +34,6 @@ if ($result->num_rows > 0) {
 $stmt->close();
 
 // Get user's bookings (as passenger) - ALL bookings for display (INCLUDING CANCELLED)
-// MODIFIED: Added PaymentStatus and ReviewID
 $passenger_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime, 
                                   u.FullName as DriverName, u.PhoneNumber as DriverPhone, d.CarModel,
                                   p.PaymentStatus,
@@ -55,8 +55,8 @@ $stmt->close();
 
 // Count only PENDING bookings for passenger tab (EXCLUDE CANCELLED)
 $passenger_pending_count_sql = "SELECT COUNT(*) as pending_count 
-                               FROM booking 
-                               WHERE UserID = ? AND BookingStatus = 'Pending'";
+                                FROM booking 
+                                WHERE UserID = ? AND BookingStatus = 'Pending'";
 $stmt = $conn->prepare($passenger_pending_count_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -64,11 +64,12 @@ $passenger_pending_result = $stmt->get_result();
 $passenger_pending_count = $passenger_pending_result->fetch_assoc()['pending_count'];
 $stmt->close();
 
-// Get driver's ride bookings (if user is a driver) - ALL bookings for display
+// Get driver's ride bookings (if user is a driver AND APPROVED)
 $driver_bookings = null;
 $driver_pending_count = 0;
 
-if ($is_driver) {
+// KEMASKINI LOGIK: Hanya tarik data jika status approved
+if ($is_driver && $driver['Status'] === 'approved') {
     $driver_bookings_sql = "SELECT b.*, r.FromLocation, r.ToLocation, r.RideDate, r.DepartureTime,
                                    u.FullName as PassengerName, u.PhoneNumber as PassengerPhone,
                                    p.PaymentStatus
@@ -86,9 +87,9 @@ if ($is_driver) {
 
     // Count only PENDING bookings for driver tab (EXCLUDE CANCELLED)
     $driver_pending_count_sql = "SELECT COUNT(*) as pending_count 
-                                FROM booking b
-                                JOIN rides r ON b.RideID = r.RideID
-                                WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+                                 FROM booking b
+                                 JOIN rides r ON b.RideID = r.RideID
+                                 WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
     $stmt = $conn->prepare($driver_pending_count_sql);
     $stmt->bind_param("i", $driver['DriverID']);
     $stmt->execute();
@@ -115,7 +116,6 @@ $conn->close();
 
 <body>
     <div class="dashboard-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -123,40 +123,39 @@ $conn->close();
                 </div>
                 <div class="user-details">
                     <h3><?php echo $_SESSION['full_name'] ?? 'User'; ?></h3>
-                    <span class="user-role"><?php echo $is_driver ? 'Driver' : 'Passenger'; ?></span>
+                    <span class="user-role"><?php echo ($is_driver && $driver['Status'] === 'approved') ? 'Driver' : 'Passenger'; ?></span>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
                 <ul>
                     <li class="nav-item">
-                        <a href="userdashboard.php" class="nav-link" data-section="findride" data-count="<?php echo $rides_count ?? 0; ?>">
+                        <a href="userdashboard.php" class="nav-link" data-section="findride">
                             <i class="fa-solid fa-gauge"></i>
                             <span>Find Ride</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="userprofile.php" class="nav-link" data-section="profile" data-count="0">
+                        <a href="userprofile.php" class="nav-link" data-section="profile">
                             <i class="fa-solid fa-user"></i>
                             <span>My Profile</span>
                         </a>
                     </li>
-                    <?php if ($is_driver): ?>
+
+                    <?php if ($is_driver && $driver['Status'] === 'approved'): ?>
                         <li class="nav-item">
-                            <a href="driverdashboard.php" class="nav-link" data-section="driver" data-count="0">
+                            <a href="driverdashboard.php" class="nav-link" data-section="driver">
                                 <i class="fa-solid fa-car-side"></i>
                                 <span>Driver Dashboard</span>
                             </a>
                         </li>
-                    <?php endif; ?>
-                    <?php if ($is_driver): ?>
                         <li class="nav-item">
                             <a href="rideoffer.php" class="nav-link">
                                 <i class="fa-solid fa-plus"></i>
                                 <span>Offer Ride</span>
                             </a>
                         </li>
-                    <?php else: ?>
+                    <?php elseif (!$is_driver): ?>
                         <li class="nav-item">
                             <a href="driverregistration.php" class="nav-link">
                                 <i class="fa-solid fa-user-plus"></i>
@@ -165,18 +164,18 @@ $conn->close();
                         </li>
                     <?php endif; ?>
                     <li class="nav-item active">
-                        <a href="mybookings.php" class="nav-link" data-section="bookings" data-count="<?php echo ($passenger_bookings->num_rows ?? 0) + ($driver_bookings ? $driver_bookings->num_rows : 0); ?>">
+                        <a href="mybookings.php" class="nav-link" data-section="bookings">
                             <div class="nav-link-content">
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && isset($driver_pending_count) && $driver_pending_count > 0): ?>
+                            <?php if ($is_driver && $driver['Status'] === 'approved' && $driver_pending_count > 0): ?>
                                 <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
                             <?php endif; ?>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="todaysride.php" class="nav-link" data-section="todays" data-count="0">
+                        <a href="todaysride.php" class="nav-link" data-section="todays">
                             <i class="fa-solid fa-calendar-day"></i>
                             <span>Today's Rides</span>
                         </a>
@@ -191,9 +190,7 @@ $conn->close();
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Header -->
             <header class="dashboard-header">
                 <div class="header-content">
                     <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
@@ -216,10 +213,8 @@ $conn->close();
                 </div>
             </header>
 
-            <!-- Main Content -->
             <main class="dashboard-main">
                 <div class="bookings-container">
-                    <!-- Page Header -->
                     <div class="page-header">
                         <h1><i class="fa-solid fa-ticket"></i> My Bookings</h1>
                         <p>Manage your ride bookings and passenger requests</p>
@@ -229,14 +224,14 @@ $conn->close();
                         </p>
                     </div>
 
-                    <!-- Booking Tabs -->
                     <div class="booking-tabs">
                         <button class="tab-btn active" data-tab="passenger-bookings">
                             <i class="fa-solid fa-user"></i>
                             My Bookings
                             <span class="tab-count"><?php echo $passenger_pending_count; ?></span>
                         </button>
-                        <?php if ($is_driver): ?>
+
+                        <?php if ($is_driver && $driver['Status'] === 'approved'): ?>
                             <button class="tab-btn" data-tab="driver-bookings">
                                 <i class="fa-solid fa-id-card"></i>
                                 Passenger Requests
@@ -245,7 +240,6 @@ $conn->close();
                         <?php endif; ?>
                     </div>
 
-                    <!-- Passenger Bookings Tab -->
                     <div class="tab-content active" id="passenger-bookings">
                         <div class="bookings-header">
                             <h2>My Ride Bookings</h2>
@@ -356,15 +350,14 @@ $conn->close();
                         <?php endif; ?>
                     </div>
 
-                    <!-- Driver Bookings Tab (Only for drivers) -->
-                    <?php if ($is_driver): ?>
+                    <?php if ($is_driver && $driver['Status'] === 'approved'): ?>
                         <div class="tab-content" id="driver-bookings">
                             <div class="bookings-header">
                                 <h2>Passenger Requests</h2>
                                 <p>Manage booking requests for your rides</p>
                             </div>
 
-                            <?php if ($driver_bookings->num_rows > 0): ?>
+                            <?php if ($driver_bookings && $driver_bookings->num_rows > 0): ?>
                                 <div class="bookings-grid">
                                     <?php while ($booking = $driver_bookings->fetch_assoc()):
                                         $status_class = 'status-' . strtolower($booking['BookingStatus']);
@@ -407,10 +400,6 @@ $conn->close();
                                                         <div class="detail-item">
                                                             <i class="fa-solid fa-phone"></i>
                                                             <span><?php echo htmlspecialchars($booking['PassengerPhone']); ?></span>
-                                                        </div>
-                                                        <div class="detail-item">
-                                                            <i class="fa-solid fa-calendar-check"></i>
-                                                            <span>Booked: <?php echo date('M j, g:i A', strtotime($booking['BookingDateTime'])); ?></span>
                                                         </div>
                                                     </div>
                                                 </div>

@@ -28,6 +28,24 @@ $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 $current_time = date('H:i:s'); // Current time for time checking
 
+// --- TAMBAHAN: AUTO-EXPIRE RIDES ---
+// Logic: Jika masa dah lepas DAN status masih 'available' DAN tiada booking yang confirm/paid
+// Maka tukar status jadi 'expired' automatik.
+
+$currentDateTimeFull = date('Y-m-d H:i:s');
+
+$expire_sql = "UPDATE rides 
+               SET Status = 'expired' 
+               WHERE TIMESTAMP(RideDate, DepartureTime) < '$currentDateTimeFull' 
+               AND Status = 'available' 
+               AND RideID NOT IN (
+                   SELECT RideID FROM booking 
+                   WHERE BookingStatus IN ('Confirmed', 'Paid', 'Completed')
+               )";
+
+$conn->query($expire_sql);
+// ------------------------------------
+
 // Check if user is a driver
 $is_driver = false;
 $driver_check_sql = "SELECT DriverID FROM driver WHERE UserID = ?";

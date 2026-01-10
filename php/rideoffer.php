@@ -1,11 +1,13 @@
 <?php
 session_start();
+
+// 1. Check Login
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-// Check if user is a driver
+// 2. Database Connection
 $servername = "127.0.0.1:3301";
 $username = "root";
 $password = "";
@@ -17,6 +19,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// 3. Initialize Variables
 $user_id = $_SESSION['user_id'];
 $is_driver = false;
 $driver_id = null;
@@ -24,7 +27,7 @@ $user_gender = '';
 $has_existing_rides = false;
 $existing_rides = [];
 
-// Get user gender
+// 4. Get User Gender
 $user_sql = "SELECT Gender FROM user WHERE UserID = ?";
 $stmt = $conn->prepare($user_sql);
 $stmt->bind_param("i", $user_id);
@@ -36,17 +39,32 @@ if ($user_result->num_rows > 0) {
 }
 $stmt->close();
 
-// Check if user is a driver
-$driver_check_sql = "SELECT DriverID FROM driver WHERE UserID = ?";
+// 5. Check Driver Status & Get ID (KOD YANG DIKEMASKINI)
+// Kita tambah 'Status' dalam SELECT
+$driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
+
 if ($result->num_rows > 0) {
-    $is_driver = true;
     $driver_data = $result->fetch_assoc();
+
+    // --- [MULA: LOGIC SEMAKAN STATUS BARU] ---
+    if ($driver_data['Status'] !== 'approved') {
+        // Jika status pending atau rejected, paparkan alert dan redirect
+        echo "<script>
+            alert('Your driver account is not approved yet. Please wait for admin approval.');
+            window.location.href='userdashboard.php';
+        </script>";
+        exit(); // Stop code di sini
+    }
+    // --- [TAMAT: LOGIC SEMAKAN STATUS BARU] ---
+
+    // Jika approved, baru teruskan logic asal
+    $is_driver = true;
     $driver_id = $driver_data['DriverID'];
-    
+
     // Get driver's existing active rides for today and future dates
     $current_date = date('Y-m-d');
     $rides_sql = "SELECT RideID, FromLocation, ToLocation, RideDate, DepartureTime, Status 
@@ -55,12 +73,12 @@ if ($result->num_rows > 0) {
                   AND RideDate >= ?
                   AND Status IN ('available', 'in_progress')
                   ORDER BY RideDate, DepartureTime";
-    
+
     $rides_stmt = $conn->prepare($rides_sql);
     $rides_stmt->bind_param("is", $driver_id, $current_date);
     $rides_stmt->execute();
     $rides_result = $rides_stmt->get_result();
-    
+
     if ($rides_result->num_rows > 0) {
         $has_existing_rides = true;
         while ($ride = $rides_result->fetch_assoc()) {
@@ -68,14 +86,13 @@ if ($result->num_rows > 0) {
         }
     }
     $rides_stmt->close();
-}
-$stmt->close();
-$conn->close();
-
-if (!$is_driver) {
+} else {
+    // Jika tiada rekod dalam table driver langsung
     header("Location: userdashboard.php");
     exit();
 }
+$stmt->close();
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -98,18 +115,19 @@ if (!$is_driver) {
             max-width: 400px;
             animation: slideIn 0.3s ease;
         }
-        
+
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
             }
         }
-        
+
         .schedule-conflict {
             background-color: #fff3cd;
             border: 1px solid #ffeaa7;
@@ -117,13 +135,13 @@ if (!$is_driver) {
             padding: 15px;
             margin-bottom: 20px;
         }
-        
+
         .existing-rides-list {
             margin-top: 10px;
             max-height: 200px;
             overflow-y: auto;
         }
-        
+
         .existing-ride-item {
             display: flex;
             justify-content: space-between;
@@ -134,100 +152,100 @@ if (!$is_driver) {
             border-radius: 6px;
             border-left: 4px solid #3498db;
         }
-        
+
         .existing-ride-item.cancelled {
             border-left-color: #e74c3c;
             opacity: 0.7;
         }
-        
+
         .existing-ride-item.completed {
             border-left-color: #2ecc71;
             opacity: 0.7;
         }
-        
+
         .ride-time {
             font-weight: bold;
             color: #2c3e50;
         }
-        
+
         .ride-location {
             font-size: 0.9em;
             color: #7f8c8d;
         }
-        
+
         .ride-status {
             font-size: 0.8em;
             padding: 2px 8px;
             border-radius: 12px;
             background: #ecf0f1;
         }
-        
+
         .status-available {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .status-in_progress {
             background: #cce5ff;
             color: #004085;
         }
 
         .autocomplete-container {
-    position: relative;
-}
+            position: relative;
+        }
 
-.autocomplete-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 0 0 8px 8px;
-    max-height: 250px;
-    overflow-y: auto;
-    z-index: 1000;
-    display: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
 
-.autocomplete-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    transition: background 0.2s;
-    border-bottom: 1px solid #f0f0f0;
-    display: flex;
-    align-items: center;
-}
+        .autocomplete-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+        }
 
-.autocomplete-item:last-child {
-    border-bottom: none;
-}
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
 
-.autocomplete-item:hover {
-    background: #f5f5f5;
-}
+        .autocomplete-item:hover {
+            background: #f5f5f5;
+        }
 
-.autocomplete-item i {
-    margin-right: 10px;
-    color: #3498db;
-    width: 20px;
-}
+        .autocomplete-item i {
+            margin-right: 10px;
+            color: #3498db;
+            width: 20px;
+        }
 
-.btn-small {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background 0.3s;
-}
+        .btn-small {
+            padding: 8px 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
 
-.btn-small:hover {
-    background: var(--primary-color-dark);
-}
+        .btn-small:hover {
+            background: var(--primary-color-dark);
+        }
     </style>
 </head>
 
@@ -244,7 +262,7 @@ if (!$is_driver) {
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
-    
+
     <?php if (isset($_SESSION['warning'])): ?>
         <div class="notification-toast">
             <div class="alert alert-warning alert-dismissible fade show" role="alert">
@@ -257,7 +275,7 @@ if (!$is_driver) {
         </div>
         <?php unset($_SESSION['warning']); ?>
     <?php endif; ?>
-    
+
     <?php if (isset($_SESSION['success'])): ?>
         <div class="notification-toast">
             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -280,7 +298,7 @@ if (!$is_driver) {
                 </div>
                 <h1>Offer a Ride</h1>
                 <p>Share your journey and help fellow students travel around campus</p>
-                
+
                 <?php if ($has_existing_rides): ?>
                     <div class="schedule-conflict">
                         <h4><i class="fa-solid fa-calendar-check"></i> Your Upcoming Rides</h4>
@@ -313,49 +331,49 @@ if (!$is_driver) {
                     <h3><i class="fa-solid fa-route"></i> Route Information</h3>
                     <div class="form-row">
                         <div class="form-group">
-    <label for="fromLocation">
-        <i class="fa-solid fa-location-dot"></i>
-        From Location *
-    </label>
-    <div class="input-group autocomplete-container">
-        <input type="text" id="fromLocation" name="fromLocation" required
-               placeholder="e.g., Mahkota Parade, KL Sentral, Library"
-               class="location-autocomplete">
-        <input type="hidden" id="fromLocationLat" name="fromLocationLat">
-        <input type="hidden" id="fromLocationLng" name="fromLocationLng">
-        <div class="autocomplete-dropdown" id="fromAutocompleteDropdown"></div>
-    </div>
-    <small class="help-text">Starting point of your ride</small>
-    <small class="error-text" id="fromLocationError"></small>
-</div>
+                            <label for="fromLocation">
+                                <i class="fa-solid fa-location-dot"></i>
+                                From Location *
+                            </label>
+                            <div class="input-group autocomplete-container">
+                                <input type="text" id="fromLocation" name="fromLocation" required
+                                    placeholder="e.g., Mahkota Parade, KL Sentral, Library"
+                                    class="location-autocomplete">
+                                <input type="hidden" id="fromLocationLat" name="fromLocationLat">
+                                <input type="hidden" id="fromLocationLng" name="fromLocationLng">
+                                <div class="autocomplete-dropdown" id="fromAutocompleteDropdown"></div>
+                            </div>
+                            <small class="help-text">Starting point of your ride</small>
+                            <small class="error-text" id="fromLocationError"></small>
+                        </div>
 
-<div class="form-group">
-    <label for="toLocation">
-        <i class="fa-solid fa-location-dot"></i>
-        To Location *
-    </label>
-    <div class="input-group autocomplete-container">
-        <input type="text" id="toLocation" name="toLocation" required
-               placeholder="e.g., University Campus, Faculty Building"
-               class="location-autocomplete">
-        <input type="hidden" id="toLocationLat" name="toLocationLat">
-        <input type="hidden" id="toLocationLng" name="toLocationLng">
-        <div class="autocomplete-dropdown" id="toAutocompleteDropdown"></div>
-    </div>
-    <small class="help-text">Destination of your ride</small>
-    <small class="error-text" id="toLocationError"></small>
-</div>
+                        <div class="form-group">
+                            <label for="toLocation">
+                                <i class="fa-solid fa-location-dot"></i>
+                                To Location *
+                            </label>
+                            <div class="input-group autocomplete-container">
+                                <input type="text" id="toLocation" name="toLocation" required
+                                    placeholder="e.g., University Campus, Faculty Building"
+                                    class="location-autocomplete">
+                                <input type="hidden" id="toLocationLat" name="toLocationLat">
+                                <input type="hidden" id="toLocationLng" name="toLocationLng">
+                                <div class="autocomplete-dropdown" id="toAutocompleteDropdown"></div>
+                            </div>
+                            <small class="help-text">Destination of your ride</small>
+                            <small class="error-text" id="toLocationError"></small>
+                        </div>
 
-<!-- Map Preview Container -->
-<div id="mapPreviewContainer" style="display: none; margin-top: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h4><i class="fa-solid fa-map"></i> Route Preview</h4>
-        <button type="button" id="confirmRoute" class="btn-small" style="display: none;">
-            <i class="fa-solid fa-check"></i> Confirm Route
-        </button>
-    </div>
-    <div id="map" style="height: 300px; border-radius: 8px;"></div>
-</div>
+                        <!-- Map Preview Container -->
+                        <div id="mapPreviewContainer" style="display: none; margin-top: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4><i class="fa-solid fa-map"></i> Route Preview</h4>
+                                <button type="button" id="confirmRoute" class="btn-small" style="display: none;">
+                                    <i class="fa-solid fa-check"></i> Confirm Route
+                                </button>
+                            </div>
+                            <div id="map" style="height: 300px; border-radius: 8px;"></div>
+                        </div>
                     </div>
                 </div>
 

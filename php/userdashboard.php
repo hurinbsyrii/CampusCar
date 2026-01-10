@@ -30,6 +30,7 @@ $user_id = $_SESSION['user_id'];
 $is_driver = false;
 $driver_id = null;
 $user_gender = '';
+$driver_status = ''; // Tambah variable ni
 
 // Get user gender
 $user_sql = "SELECT Gender FROM user WHERE UserID = ?";
@@ -45,7 +46,7 @@ if ($user_result->num_rows > 0) {
 }
 $stmt->close();
 
-$driver_check_sql = "SELECT DriverID FROM driver WHERE UserID = ?";
+$driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?"; // Ambil Status sekali
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -57,6 +58,7 @@ if ($result->num_rows > 0) {
     $is_driver = true;
     $driver_data = $result->fetch_assoc();
     $driver_id = $driver_data['DriverID'];
+    $driver_status = $driver_data['Status']; // Simpan status driver
 
     // NEW CODE: Count Pending Requests for this driver
     $pending_sql = "SELECT COUNT(*) as count FROM booking b 
@@ -262,7 +264,8 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                             </a>
                         </li>
                     <?php endif; ?>
-                    <?php if ($is_driver): ?>
+                    <?php if ($is_driver && $driver_status === 'approved'): // Tambah check status approved 
+                    ?>
                         <li class="nav-item" data-section="offer" data-count="0">
                             <a href="rideoffer.php" class="nav-link">
                                 <i class="fa-solid fa-plus"></i>
@@ -335,19 +338,36 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
             <main class="dashboard-main">
                 <!-- Driver Status Section -->
                 <section class="status-section">
-                    <div class="status-card <?php echo $is_driver ? 'driver-active' : 'driver-inactive'; ?>">
+                    <div class="status-card <?php echo $is_driver ? ($driver_status === 'approved' ? 'driver-active' : 'driver-pending') : 'driver-inactive'; ?>">
                         <div class="status-icon">
-                            <i class="fa-solid fa-id-card"></i>
+                            <i class="fa-solid <?php echo $is_driver ? ($driver_status === 'approved' ? 'fa-id-card' : 'fa-clock') : 'fa-user-plus'; ?>"></i>
                         </div>
                         <div class="status-content">
-                            <h3><?php echo $is_driver ? 'Registered Driver' : 'Become a Driver'; ?></h3>
-                            <p><?php echo $is_driver ? 'You can now offer rides to other students' : 'Register as a driver to start offering rides'; ?></p>
+                            <?php if (!$is_driver): ?>
+                                <h3>Become a Driver</h3>
+                                <p>Register as a driver to start offering rides</p>
+                            <?php elseif ($driver_status === 'pending'): ?>
+                                <h3>Verification Pending</h3>
+                                <p>Your application is being reviewed by admin. You can offer rides once approved.</p>
+                            <?php else: ?>
+                                <h3>Registered Driver</h3>
+                                <p>You can now offer rides to other students</p>
+                            <?php endif; ?>
                         </div>
-                        <button class="status-btn <?php echo $is_driver ? 'btn-success' : 'btn-primary'; ?>"
-                            onclick="<?php echo $is_driver ? 'offerRide()' : 'registerAsDriver()'; ?>">
-                            <i class="fa-solid fa-<?php echo $is_driver ? 'plus' : 'user-plus'; ?>"></i>
-                            <?php echo $is_driver ? 'Offer Ride' : 'Register as Driver'; ?>
-                        </button>
+
+                        <?php if (!$is_driver): ?>
+                            <button class="status-btn btn-primary" onclick="registerAsDriver()">
+                                <i class="fa-solid fa-user-plus"></i> Register as Driver
+                            </button>
+                        <?php elseif ($driver_status === 'pending'): ?>
+                            <button class="status-btn btn-warning" onclick="showPendingAlert()">
+                                <i class="fa-solid fa-clock"></i> Status: Pending
+                            </button>
+                        <?php else: ?>
+                            <button class="status-btn btn-success" onclick="offerRide()">
+                                <i class="fa-solid fa-plus"></i> Offer Ride
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </section>
 

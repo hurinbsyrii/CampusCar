@@ -1401,3 +1401,16 @@ body {
         padding: 10px 15px;
     }
 }
+
+.driver-pending {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffecb5 100%);
+    border-left: 5px solid #ffc107;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #000;
+    border: none;
+    cursor: default;
+    /* Tak nampak macam boleh klik sangat */
+}

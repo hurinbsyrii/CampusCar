@@ -129,6 +129,13 @@ function clearFilters() {
   window.location.href = "userdashboard.php";
 }
 
+function showPendingAlert() {
+  showNotification(
+    "Your driver registration is still pending approval.",
+    "warning"
+  );
+}
+
 // Additional functionality
 document.addEventListener("DOMContentLoaded", function () {
   console.log("CampusCar Dashboard loaded");

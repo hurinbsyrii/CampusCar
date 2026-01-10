@@ -222,15 +222,25 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Add loading states to buttons
+  // Add loading states to buttons
   const buttons = document.querySelectorAll("button");
   buttons.forEach((button) => {
-    button.addEventListener("click", function () {
-      if (
+    button.addEventListener("click", function (e) {
+      // Check if it's the search button
+      if (this.classList.contains("search-btn")) {
+        // UNTUK SEARCH BUTTON:
+        // Jangan disable button, sebab ia akan halang form submission.
+        // Cuma tukar UI sahaja. Page akan reload, jadi tak perlu revert.
+        this.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Searching...';
+        // PENTING: Jangan letak this.disabled = true di sini!
+      } else if (
         this.classList.contains("btn-primary") ||
         this.classList.contains("btn-success") ||
-        this.classList.contains("search-btn") ||
         this.classList.contains("quick-filter-btn")
       ) {
+        // UNTUK BUTTON LAIN (AJAX atau Link):
+        // Boleh disable seperti biasa
         const originalText = this.innerHTML;
         this.innerHTML =
           '<i class="fa-solid fa-spinner fa-spin"></i> Loading...';

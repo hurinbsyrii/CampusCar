@@ -73,6 +73,7 @@ $date_filter = isset($_GET['date']) ? $conn->real_escape_string($_GET['date']) :
 $female_only = isset($_GET['female_only']) ? $_GET['female_only'] : '';
 
 // Build query with joins
+// New Code
 $sql = "SELECT 
     r.*,
     d.DriverID,
@@ -81,6 +82,7 @@ $sql = "SELECT
     u.FullName as DriverName,
     u.PhoneNumber as DriverPhone,
     COUNT(b.BookingID) as TotalBookings,
+    COALESCE(SUM(b.NoOfSeats), 0) as SeatsTaken,  /* <--- ADD THIS LINE */
     COALESCE(SUM(de.Amount), 0) as TotalEarnings
     FROM rides r
     LEFT JOIN driver d ON r.DriverID = d.DriverID
@@ -640,9 +642,13 @@ function exportRidesToCSV($conn)
                                                         <strong>Seats Sold:</strong>
                                                         <span class="stat-value">
                                                             <?php
-                                                            $total_seats = 4; // Assuming 4 seats per car
-                                                            $seats_sold = $total_seats - $ride['AvailableSeats'];
-                                                            echo $seats_sold . '/' . $total_seats;
+                                                            // Get actual seats taken from the database query
+                                                            $seats_sold = $ride['SeatsTaken'];
+
+                                                            // Calculate total capacity dynamically (Available + Taken)
+                                                            $total_capacity = $ride['AvailableSeats'] + $seats_sold;
+
+                                                            echo $seats_sold . '/' . $total_capacity;
                                                             ?>
                                                         </span>
                                                     </p>

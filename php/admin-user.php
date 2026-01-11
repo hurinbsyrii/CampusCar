@@ -19,66 +19,140 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle actions (toggle status, delete)
+// Handle actions (toggle status, delete, check activity)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && isset($_POST['user_id'])) {
         $user_id = intval($_POST['user_id']);
         $action = $_POST['action'];
-        
+
+        // --- NEW: AJAX Check for Active Rides/Bookings ---
+        if ($action === 'check_activity') {
+            // Check for active bookings (Pending/Confirmed)
+            $booking_sql = "SELECT COUNT(*) as count FROM booking 
+                            WHERE UserID = $user_id 
+                            AND BookingStatus IN ('Pending', 'Confirmed')";
+
+            // Check for active rides (Driver with upcoming rides)
+            $ride_sql = "SELECT COUNT(*) as count FROM rides r
+                         JOIN driver d ON r.DriverID = d.DriverID
+                         WHERE d.UserID = $user_id 
+                         AND r.Status IN ('available', 'pending')
+                         AND r.RideDate >= CURRENT_DATE";
+
+            $bookings = $conn->query($booking_sql)->fetch_assoc()['count'];
+            $rides = $conn->query($ride_sql)->fetch_assoc()['count'];
+
+            echo json_encode([
+                'status' => 'success',
+                'active_bookings' => $bookings,
+                'active_rides' => $rides,
+                'total_active' => $bookings + $rides
+            ]);
+            exit(); // Stop script here for AJAX
+        }
+        // --------------------------------------------------
+
         if ($action === 'toggle_status') {
-            // Get current status
+            // ... (Your existing toggle logic remains the same) ...
             $result = $conn->query("SELECT Role, FullName FROM user WHERE UserID = $user_id");
             if ($result->num_rows > 0) {
                 $user = $result->fetch_assoc();
                 $new_role = $user['Role'] === 'admin' ? 'user' : 'admin';
-                
                 $stmt = $conn->prepare("UPDATE user SET Role = ? WHERE UserID = ?");
                 $stmt->bind_param("si", $new_role, $user_id);
-                
                 if ($stmt->execute()) {
-                    $_SESSION['notification'] = [
-                        'message' => "User {$user['FullName']}'s role updated to $new_role",
-                        'type' => 'success'
-                    ];
+                    $_SESSION['notification'] = ['message' => "User {$user['FullName']}'s role updated to $new_role", 'type' => 'success'];
                 }
                 $stmt->close();
             }
-        }
-        elseif ($action === 'delete' && isset($_POST['confirm_delete'])) {
-            // Check if user has any bookings or rides
-            $check_sql = "SELECT 
-                (SELECT COUNT(*) FROM booking WHERE UserID = $user_id) as booking_count,
-                (SELECT COUNT(*) FROM driver WHERE UserID = $user_id) as driver_count";
-            
-            $check_result = $conn->query($check_sql);
-            $counts = $check_result->fetch_assoc();
-            
-            if ($counts['booking_count'] > 0 || $counts['driver_count'] > 0) {
-                $_SESSION['notification'] = [
-                    'message' => "Cannot delete user. User has existing bookings or driver registrations.",
-                    'type' => 'error'
-                ];
-            } else {
-                // Get user info before deletion
-                $user_info = $conn->query("SELECT FullName FROM user WHERE UserID = $user_id")->fetch_assoc();
-                
+        } elseif ($action === 'delete' && isset($_POST['confirm_delete'])) {
+
+            $conn->begin_transaction(); // Start safe transaction
+
+            try {
+                // 1. Handle DRIVER Role: Cancel Rides & Notify Passengers
+                $driver_check = $conn->query("SELECT DriverID FROM driver WHERE UserID = $user_id");
+                if ($driver_check->num_rows > 0) {
+                    $driver = $driver_check->fetch_assoc();
+                    $driver_id = $driver['DriverID'];
+
+                    // Find active rides
+                    $active_rides_query = "SELECT RideID, RideDate, FromLocation, ToLocation 
+                                           FROM rides 
+                                           WHERE DriverID = $driver_id AND Status NOT IN ('completed', 'cancelled')";
+                    $rides_result = $conn->query($active_rides_query);
+
+                    while ($ride = $rides_result->fetch_assoc()) {
+                        $ride_id = $ride['RideID'];
+
+                        // Notify all passengers of this ride
+                        $passengers_query = "SELECT UserID FROM booking WHERE RideID = $ride_id";
+                        $passengers = $conn->query($passengers_query);
+
+                        while ($p = $passengers->fetch_assoc()) {
+                            $p_id = $p['UserID'];
+                            $msg = "The ride from " . $ride['FromLocation'] . " on " . $ride['RideDate'] . " has been CANCELLED because the driver account was removed.";
+
+                            // Insert Notification
+                            $notif_stmt = $conn->prepare("INSERT INTO notifications (UserID, Title, Message, Type, IsRead, CreatedAt) VALUES (?, 'Ride Cancelled (Admin)', ?, 'warning', 0, NOW())");
+                            $notif_stmt->bind_param("is", $p_id, $msg);
+                            $notif_stmt->execute();
+                            $notif_stmt->close();
+                        }
+
+                        // Delete bookings for this ride (FK Cleanup)
+                        $conn->query("DELETE FROM booking WHERE RideID = $ride_id");
+                        // Delete earnings related to this ride
+                        $conn->query("DELETE FROM driver_earnings WHERE RideID = $ride_id");
+                    }
+
+                    // Delete all rides by this driver
+                    $conn->query("DELETE FROM rides WHERE DriverID = $driver_id");
+                    // Delete driver earnings
+                    $conn->query("DELETE FROM driver_earnings WHERE DriverID = $driver_id");
+                    // Delete reviews for this driver
+                    $conn->query("DELETE FROM reviews WHERE DriverID = $driver_id");
+                    // Remove driver entry
+                    $conn->query("DELETE FROM driver WHERE DriverID = $driver_id");
+                }
+
+                // 2. Handle PASSENGER Role: Delete Bookings
+                // (Optional: You could notify drivers here if you wanted, but usually just deleting the booking is enough)
+                $conn->query("DELETE FROM payments WHERE UserID = $user_id"); // Clean payments
+                $conn->query("DELETE FROM booking WHERE UserID = $user_id"); // Clean bookings
+
+                // 3. Clean other dependencies
+                $conn->query("DELETE FROM notifications WHERE UserID = $user_id");
+                $conn->query("DELETE FROM password_reset WHERE UserID = $user_id");
+                $conn->query("DELETE FROM reviews WHERE UserID = $user_id");
+
+                // 4. Finally Delete User
                 $stmt = $conn->prepare("DELETE FROM user WHERE UserID = ?");
                 $stmt->bind_param("i", $user_id);
-                
-                if ($stmt->execute()) {
-                    $_SESSION['notification'] = [
-                        'message' => "User {$user_info['FullName']} deleted successfully",
-                        'type' => 'success'
-                    ];
-                }
-                $stmt->close();
+                $stmt->execute();
+
+                $conn->commit(); // Save changes
+
+                $_SESSION['notification'] = [
+                    'message' => "User deleted successfully. Active rides/bookings were cancelled and passengers notified.",
+                    'type' => 'success'
+                ];
+            } catch (Exception $e) {
+                $conn->rollback(); // Undo if error
+                $_SESSION['notification'] = [
+                    'message' => "Error deleting user: " . $e->getMessage(),
+                    'type' => 'error'
+                ];
             }
         }
-        
+
         header("Location: admin-user.php");
         exit();
     }
 }
+
+// ... (Rest of your HTML Code remains exactly the same below) ...
+// Ensure you include the rest of your HTML code here
 
 // Get all users
 $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
@@ -122,6 +196,7 @@ while ($row = $faculties_result->fetch_assoc()) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -131,6 +206,7 @@ while ($row = $faculties_result->fetch_assoc()) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="admin-container">
         <!-- Sidebar -->
@@ -272,17 +348,17 @@ while ($row = $faculties_result->fetch_assoc()) {
                             <form method="GET" class="search-filter-form">
                                 <div class="search-box">
                                     <i class="fa-solid fa-search"></i>
-                                    <input type="text" name="search" placeholder="Search users..." 
-                                           value="<?php echo htmlspecialchars($search_term); ?>">
+                                    <input type="text" name="search" placeholder="Search users..."
+                                        value="<?php echo htmlspecialchars($search_term); ?>">
                                 </div>
-                                
+
                                 <div class="filter-controls">
                                     <select name="role" class="filter-select">
                                         <option value="">All Roles</option>
                                         <option value="admin" <?php echo $role_filter === 'admin' ? 'selected' : ''; ?>>Admin</option>
                                         <option value="user" <?php echo $role_filter === 'user' ? 'selected' : ''; ?>>User</option>
                                     </select>
-                                    
+
                                     <select name="faculty" class="filter-select">
                                         <option value="">All Faculties</option>
                                         <?php foreach ($faculties as $faculty): ?>
@@ -292,11 +368,11 @@ while ($row = $faculties_result->fetch_assoc()) {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    
+
                                     <button type="submit" class="filter-btn">
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
-                                    
+
                                     <a href="admin-user.php" class="clear-btn">
                                         <i class="fa-solid fa-times"></i> Clear
                                     </a>
@@ -338,11 +414,11 @@ while ($row = $faculties_result->fetch_assoc()) {
                                                     <div class="user-details">
                                                         <h4><?php echo htmlspecialchars($user['FullName']); ?></h4>
                                                         <p>
-                                                            <i class="fa-solid fa-user"></i> 
+                                                            <i class="fa-solid fa-user"></i>
                                                             <?php echo htmlspecialchars($user['Username']); ?>
                                                         </p>
                                                         <p>
-                                                            <i class="fa-solid fa-id-card"></i> 
+                                                            <i class="fa-solid fa-id-card"></i>
                                                             <?php echo htmlspecialchars($user['ICNo']); ?>
                                                         </p>
                                                     </div>
@@ -351,15 +427,15 @@ while ($row = $faculties_result->fetch_assoc()) {
                                             <td>
                                                 <div class="contact-info">
                                                     <p>
-                                                        <i class="fa-solid fa-envelope"></i> 
+                                                        <i class="fa-solid fa-envelope"></i>
                                                         <?php echo htmlspecialchars($user['Email']); ?>
                                                     </p>
                                                     <p>
-                                                        <i class="fa-solid fa-phone"></i> 
+                                                        <i class="fa-solid fa-phone"></i>
                                                         <?php echo htmlspecialchars($user['PhoneNumber']); ?>
                                                     </p>
                                                     <p>
-                                                        <i class="fa-solid fa-venus-mars"></i> 
+                                                        <i class="fa-solid fa-venus-mars"></i>
                                                         <?php echo htmlspecialchars($user['Gender']); ?>
                                                     </p>
                                                 </div>
@@ -367,11 +443,11 @@ while ($row = $faculties_result->fetch_assoc()) {
                                             <td>
                                                 <div class="academic-info">
                                                     <p>
-                                                        <strong>Matric No:</strong> 
+                                                        <strong>Matric No:</strong>
                                                         <?php echo htmlspecialchars($user['MatricNo']); ?>
                                                     </p>
                                                     <p>
-                                                        <strong>Faculty:</strong> 
+                                                        <strong>Faculty:</strong>
                                                         <?php echo htmlspecialchars($user['Faculty']); ?>
                                                     </p>
                                                 </div>
@@ -397,22 +473,16 @@ while ($row = $faculties_result->fetch_assoc()) {
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <button class="action-btn view-btn" data-id="<?php echo $user['UserID']; ?>">
+                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $user['UserID']; ?>">
                                                         <i class="fa-solid fa-eye"></i> View
-                                                    </button>
-                                                    
+                                                    </button> -->
+
                                                     <?php if ($user['UserID'] != $_SESSION['user_id']): ?>
-                                                        <button class="action-btn toggle-btn" 
-                                                                data-id="<?php echo $user['UserID']; ?>"
-                                                                data-current-role="<?php echo $user['Role']; ?>"
-                                                                data-name="<?php echo htmlspecialchars($user['FullName']); ?>">
-                                                            <i class="fa-solid fa-user-cog"></i> 
-                                                            <?php echo $user['Role'] === 'admin' ? 'Make User' : 'Make Admin'; ?>
-                                                        </button>
-                                                        
-                                                        <button class="action-btn delete-btn" 
-                                                                data-id="<?php echo $user['UserID']; ?>"
-                                                                data-name="<?php echo htmlspecialchars($user['FullName']); ?>">
+
+
+                                                        <button class="action-btn delete-btn"
+                                                            data-id="<?php echo $user['UserID']; ?>"
+                                                            data-name="<?php echo htmlspecialchars($user['FullName']); ?>">
                                                             <i class="fa-solid fa-trash"></i> Delete
                                                         </button>
                                                     <?php else: ?>
@@ -434,7 +504,7 @@ while ($row = $faculties_result->fetch_assoc()) {
                                 <?php endif; ?>
                             </tbody>
                         </table>
-                        
+
                         <!-- Pagination -->
                         <div class="pagination">
                             <button class="pagination-btn disabled">
@@ -459,14 +529,14 @@ while ($row = $faculties_result->fetch_assoc()) {
                             <form id="actionForm" method="POST">
                                 <input type="hidden" name="user_id" id="modalUserId">
                                 <input type="hidden" name="action" id="modalAction">
-                                
+
                                 <div id="toggleSection" class="form-section" style="display: none;">
                                     <div class="confirmation-message">
                                         <i class="fa-solid fa-user-cog"></i>
                                         <p id="toggleMessage"></p>
                                     </div>
                                 </div>
-                                
+
                                 <div id="deleteSection" class="form-section" style="display: none;">
                                     <div class="confirmation-message">
                                         <i class="fa-solid fa-exclamation-triangle"></i>
@@ -479,7 +549,7 @@ while ($row = $faculties_result->fetch_assoc()) {
                                         </label>
                                     </div>
                                 </div>
-                                
+
                                 <div class="modal-actions">
                                     <button type="button" class="btn-secondary close-modal-btn">Cancel</button>
                                     <button type="submit" class="btn-primary" id="modalSubmitBtn"></button>
@@ -494,5 +564,6 @@ while ($row = $faculties_result->fetch_assoc()) {
 
     <script src="../js/admin-user.js?v=<?php echo time(); ?>"></script>
 </body>
+
 </html>
 <?php $conn->close(); ?>

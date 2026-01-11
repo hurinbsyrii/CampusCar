@@ -19,41 +19,52 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle actions (toggle status, delete, check activity)
+// Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && isset($_POST['user_id'])) {
         $user_id = intval($_POST['user_id']);
         $action = $_POST['action'];
 
-        // --- NEW: AJAX Check for Active Rides/Bookings ---
+        // --- 1. AJAX Check Activity (Dikemaskini: Kira Penumpang & Pemandu) ---
         if ($action === 'check_activity') {
-            // Check for active bookings (Pending/Confirmed)
-            $booking_sql = "SELECT COUNT(*) as count FROM booking 
+
+            // A. Kira booking dia sebagai PENUMPANG (Dia tumpang orang)
+            $passenger_sql = "SELECT COUNT(*) as count FROM booking 
                             WHERE UserID = $user_id 
                             AND BookingStatus IN ('Pending', 'Confirmed')";
 
-            // Check for active rides (Driver with upcoming rides)
+            // B. Kira booking orang lain pada ride dia (Dia sebagai DRIVER)
+            $driver_booking_sql = "SELECT COUNT(*) as count FROM booking b
+                                   JOIN rides r ON b.RideID = r.RideID
+                                   JOIN driver d ON r.DriverID = d.DriverID
+                                   WHERE d.UserID = $user_id 
+                                   AND b.BookingStatus IN ('Pending', 'Confirmed')";
+
+            // C. Kira Ride Aktif (Offer yang dia buat)
             $ride_sql = "SELECT COUNT(*) as count FROM rides r
                          JOIN driver d ON r.DriverID = d.DriverID
                          WHERE d.UserID = $user_id 
-                         AND r.Status IN ('available', 'pending')
+                         AND r.Status IN ('available', 'pending', 'confirmed')
                          AND r.RideDate >= CURRENT_DATE";
 
-            $bookings = $conn->query($booking_sql)->fetch_assoc()['count'];
+            $pass_count = $conn->query($passenger_sql)->fetch_assoc()['count'];
+            $driver_book_count = $conn->query($driver_booking_sql)->fetch_assoc()['count'];
             $rides = $conn->query($ride_sql)->fetch_assoc()['count'];
+
+            // Campurkan dua-dua jenis booking
+            $total_active_bookings = $pass_count + $driver_book_count;
 
             echo json_encode([
                 'status' => 'success',
-                'active_bookings' => $bookings,
+                'active_bookings' => $total_active_bookings, // Total Penumpang + Orang Tumpang Dia
                 'active_rides' => $rides,
-                'total_active' => $bookings + $rides
+                'total_active' => $total_active_bookings + $rides
             ]);
-            exit(); // Stop script here for AJAX
+            exit();
         }
-        // --------------------------------------------------
 
+        // --- 2. Toggle Role ---
         if ($action === 'toggle_status') {
-            // ... (Your existing toggle logic remains the same) ...
             $result = $conn->query("SELECT Role, FullName FROM user WHERE UserID = $user_id");
             if ($result->num_rows > 0) {
                 $user = $result->fetch_assoc();
@@ -65,80 +76,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $stmt->close();
             }
-        } elseif ($action === 'delete' && isset($_POST['confirm_delete'])) {
+        }
 
-            $conn->begin_transaction(); // Start safe transaction
+        // --- 3. Delete User (Logik: Cancel Ride -> Notify -> Delete) ---
+        elseif ($action === 'delete' && isset($_POST['confirm_delete'])) {
+            $conn->begin_transaction();
 
             try {
-                // 1. Handle DRIVER Role: Cancel Rides & Notify Passengers
+                // A. Handle Jika User Adalah DRIVER
                 $driver_check = $conn->query("SELECT DriverID FROM driver WHERE UserID = $user_id");
+
                 if ($driver_check->num_rows > 0) {
                     $driver = $driver_check->fetch_assoc();
                     $driver_id = $driver['DriverID'];
 
-                    // Find active rides
+                    // Cari Active Rides untuk dimaklumkan kepada penumpang
                     $active_rides_query = "SELECT RideID, RideDate, FromLocation, ToLocation 
                                            FROM rides 
-                                           WHERE DriverID = $driver_id AND Status NOT IN ('completed', 'cancelled')";
+                                           WHERE DriverID = $driver_id 
+                                           AND Status NOT IN ('cancelled', 'completed', 'expired')";
                     $rides_result = $conn->query($active_rides_query);
 
                     while ($ride = $rides_result->fetch_assoc()) {
                         $ride_id = $ride['RideID'];
 
-                        // Notify all passengers of this ride
-                        $passengers_query = "SELECT UserID FROM booking WHERE RideID = $ride_id";
-                        $passengers = $conn->query($passengers_query);
-
+                        // Dapatkan senarai penumpang untuk notifikasi
+                        $passengers = $conn->query("SELECT UserID FROM booking WHERE RideID = $ride_id");
                         while ($p = $passengers->fetch_assoc()) {
-                            $p_id = $p['UserID'];
-                            $msg = "The ride from " . $ride['FromLocation'] . " on " . $ride['RideDate'] . " has been CANCELLED because the driver account was removed.";
-
-                            // Insert Notification
-                            $notif_stmt = $conn->prepare("INSERT INTO notifications (UserID, Title, Message, Type, IsRead, CreatedAt) VALUES (?, 'Ride Cancelled (Admin)', ?, 'warning', 0, NOW())");
-                            $notif_stmt->bind_param("is", $p_id, $msg);
-                            $notif_stmt->execute();
-                            $notif_stmt->close();
+                            // Masukkan Notifikasi
+                            $msg = "The ride from " . $ride['FromLocation'] . " on " . $ride['RideDate'] . " has been CANCELLED by Admin because the driver was removed.";
+                            $notif_sql = "INSERT INTO notifications (UserID, Title, Message, Type, IsRead, CreatedAt) 
+                                          VALUES (?, 'Ride Cancelled (Admin)', ?, 'warning', 0, NOW())";
+                            $stmt = $conn->prepare($notif_sql);
+                            $stmt->bind_param("is", $p['UserID'], $msg);
+                            $stmt->execute();
                         }
 
-                        // Delete bookings for this ride (FK Cleanup)
-                        $conn->query("DELETE FROM booking WHERE RideID = $ride_id");
-                        // Delete earnings related to this ride
-                        $conn->query("DELETE FROM driver_earnings WHERE RideID = $ride_id");
+                        // Update status booking ke Cancelled (sebagai rekod sebelum delete, jika perlu)
+                        $conn->query("UPDATE booking SET BookingStatus = 'Cancelled', CancellationReason = 'Driver Deleted by Admin' WHERE RideID = $ride_id");
                     }
 
-                    // Delete all rides by this driver
-                    $conn->query("DELETE FROM rides WHERE DriverID = $driver_id");
-                    // Delete driver earnings
+                    // Padam data berkaitan Driver
+                    $conn->query("DELETE FROM booking WHERE RideID IN (SELECT RideID FROM rides WHERE DriverID = $driver_id)");
                     $conn->query("DELETE FROM driver_earnings WHERE DriverID = $driver_id");
-                    // Delete reviews for this driver
                     $conn->query("DELETE FROM reviews WHERE DriverID = $driver_id");
-                    // Remove driver entry
+                    $conn->query("DELETE FROM rides WHERE DriverID = $driver_id");
                     $conn->query("DELETE FROM driver WHERE DriverID = $driver_id");
                 }
 
-                // 2. Handle PASSENGER Role: Delete Bookings
-                // (Optional: You could notify drivers here if you wanted, but usually just deleting the booking is enough)
-                $conn->query("DELETE FROM payments WHERE UserID = $user_id"); // Clean payments
-                $conn->query("DELETE FROM booking WHERE UserID = $user_id"); // Clean bookings
-
-                // 3. Clean other dependencies
+                // B. Handle Jika User Adalah PASSENGER
+                $conn->query("DELETE FROM payments WHERE UserID = $user_id");
+                $conn->query("DELETE FROM booking WHERE UserID = $user_id");
                 $conn->query("DELETE FROM notifications WHERE UserID = $user_id");
                 $conn->query("DELETE FROM password_reset WHERE UserID = $user_id");
                 $conn->query("DELETE FROM reviews WHERE UserID = $user_id");
 
-                // 4. Finally Delete User
+                // C. Akhir Sekali: Padam User
                 $stmt = $conn->prepare("DELETE FROM user WHERE UserID = ?");
                 $stmt->bind_param("i", $user_id);
                 $stmt->execute();
 
-                $conn->commit(); // Save changes
+                $conn->commit();
 
                 $_SESSION['notification'] = [
-                    'message' => "User deleted successfully. Active rides/bookings were cancelled and passengers notified.",
+                    'message' => "User deleted successfully. Active rides/bookings were cancelled and notifications sent.",
                     'type' => 'success'
                 ];
             } catch (Exception $e) {
-                $conn->rollback(); // Undo if error
+                $conn->rollback();
                 $_SESSION['notification'] = [
                     'message' => "Error deleting user: " . $e->getMessage(),
                     'type' => 'error'
@@ -478,7 +483,13 @@ while ($row = $faculties_result->fetch_assoc()) {
                                                     </button> -->
 
                                                     <?php if ($user['UserID'] != $_SESSION['user_id']): ?>
-
+                                                        <!-- <button class="action-btn toggle-btn"
+                                                            data-id="<?php echo $user['UserID']; ?>"
+                                                            data-current-role="<?php echo $user['Role']; ?>"
+                                                            data-name="<?php echo htmlspecialchars($user['FullName']); ?>">
+                                                            <i class="fa-solid fa-user-cog"></i>
+                                                            <?php echo $user['Role'] === 'admin' ? 'Make User' : 'Make Admin'; ?>
+                                                        </button> -->
 
                                                         <button class="action-btn delete-btn"
                                                             data-id="<?php echo $user['UserID']; ?>"

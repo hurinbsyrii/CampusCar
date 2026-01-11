@@ -156,10 +156,10 @@ try {
         $conflicting_ride = $overlap_result->fetch_assoc();
         $conflict_time = date('g:i A', strtotime($conflicting_ride['DepartureTime']));
         $conflict_date = date('F j, Y', strtotime($conflicting_ride['RideDate']));
-        
+
         // Berikan mesej yang lebih jelas tentang status booking
         $status_message = '';
-        switch($conflicting_ride['BookingStatus']) {
+        switch ($conflicting_ride['BookingStatus']) {
             case 'Pending':
                 $status_message = 'pending confirmation';
                 break;
@@ -247,4 +247,3 @@ try {
 } finally {
     $conn->close();
 }
-?>

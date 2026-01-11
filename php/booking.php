@@ -141,7 +141,7 @@ $conn->close();
         .girls-only-badge i {
             font-size: 0.9rem;
         }
-        
+
         /* Conflict Warning */
         .conflict-warning {
             background: #fff3cd;
@@ -151,7 +151,7 @@ $conn->close();
             margin: 15px 0;
             color: #856404;
         }
-        
+
         .conflict-warning h4 {
             color: #856404;
             margin-bottom: 10px;
@@ -159,11 +159,11 @@ $conn->close();
             align-items: center;
             gap: 10px;
         }
-        
+
         .conflict-warning h4 i {
             color: #ffc107;
         }
-        
+
         .conflict-details {
             background: white;
             padding: 10px;
@@ -171,11 +171,11 @@ $conn->close();
             margin-top: 10px;
             border-left: 3px solid #ffc107;
         }
-        
+
         .conflict-details p {
             margin: 5px 0;
         }
-        
+
         .mt-3 {
             margin-top: 15px;
         }
@@ -220,19 +220,19 @@ $conn->close();
                         </div>
 
                         <?php if ($conflicting_booking): ?>
-                        <div class="conflict-warning">
-                            <h4><i class="fa-solid fa-exclamation-triangle"></i> Scheduling Conflict Detected</h4>
-                            <p>You already have an <strong>active booking</strong> at this time:</p>
-                            <div class="conflict-details">
-                                <p><strong>From:</strong> <?php echo htmlspecialchars($conflicting_booking['FromLocation']); ?></p>
-                                <p><strong>To:</strong> <?php echo htmlspecialchars($conflicting_booking['ToLocation']); ?></p>
-                                <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($conflicting_booking['RideDate'])); ?></p>
-                                <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($conflicting_booking['DepartureTime'])); ?></p>
-                                <p><strong>Status:</strong> <span style="color: #d35400; font-weight: bold;"><?php echo htmlspecialchars($conflicting_booking['BookingStatus']); ?></span></p>
+                            <div class="conflict-warning">
+                                <h4><i class="fa-solid fa-exclamation-triangle"></i> Scheduling Conflict Detected</h4>
+                                <p>You already have an <strong>active booking</strong> at this time:</p>
+                                <div class="conflict-details">
+                                    <p><strong>From:</strong> <?php echo htmlspecialchars($conflicting_booking['FromLocation']); ?></p>
+                                    <p><strong>To:</strong> <?php echo htmlspecialchars($conflicting_booking['ToLocation']); ?></p>
+                                    <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($conflicting_booking['RideDate'])); ?></p>
+                                    <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($conflicting_booking['DepartureTime'])); ?></p>
+                                    <p><strong>Status:</strong> <span style="color: #d35400; font-weight: bold;"><?php echo htmlspecialchars($conflicting_booking['BookingStatus']); ?></span></p>
+                                </div>
+                                <p class="mt-3"><em>Please <strong>complete or cancel</strong> your existing booking before booking a new ride at this time.</em></p>
+                                <p><strong>Note:</strong> "Paid" status is allowed because the ride is already completed.</p>
                             </div>
-                            <p class="mt-3"><em>Please <strong>complete or cancel</strong> your existing booking before booking a new ride at this time.</em></p>
-                            <p><strong>Note:</strong> "Paid" status is allowed because the ride is already completed.</p>
-                        </div>
                         <?php endif; ?>
 
                         <form id="bookingForm" class="booking-form" <?php echo $conflicting_booking ? 'onsubmit="return showConflictError();"' : ''; ?>>
@@ -463,10 +463,10 @@ $conn->close();
 
     <script src="../js/booking.js?v=<?php echo time(); ?>"></script>
     <script>
-    function showConflictError() {
-        showNotification('You already have an active booking at this time. Please complete or cancel your existing booking first.', 'error');
-        return false;
-    }
+        function showConflictError() {
+            showNotification('You already have an active booking at this time. Please complete or cancel your existing booking first.', 'error');
+            return false;
+        }
     </script>
 </body>
 

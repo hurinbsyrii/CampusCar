@@ -153,7 +153,8 @@ function updateBookingStatus($conn, $driver_id, $booking_id, $status)
 
     try {
         // Update booking status
-        $update_sql = "UPDATE booking SET BookingStatus = ? WHERE BookingID = ?";
+        // Kemaskini status DAN set IsSeenByPassenger kepada 0 (supaya notifikasi naik kat passenger)
+        $update_sql = "UPDATE booking SET BookingStatus = ?, IsSeenByPassenger = 0 WHERE BookingID = ?";
         $stmt = $conn->prepare($update_sql);
         $stmt->bind_param("si", $status, $booking_id);
 

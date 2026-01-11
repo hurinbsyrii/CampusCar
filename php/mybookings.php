@@ -64,6 +64,17 @@ $passenger_pending_result = $stmt->get_result();
 $passenger_pending_count = $passenger_pending_result->fetch_assoc()['pending_count'];
 $stmt->close();
 
+// --- TAMBAHAN BARU: Kira status yang berubah (updated) tapi belum dilihat ---
+$passenger_updates_sql = "SELECT COUNT(*) as update_count 
+                          FROM booking 
+                          WHERE UserID = ? AND IsSeenByPassenger = 0";
+$stmt = $conn->prepare($passenger_updates_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$update_result = $stmt->get_result();
+$passenger_update_count = $update_result->fetch_assoc()['update_count'];
+$stmt->close();
+
 // Get driver's ride bookings (if user is a driver AND APPROVED)
 $driver_bookings = null;
 $driver_pending_count = 0;
@@ -95,6 +106,16 @@ if ($is_driver && $driver['Status'] === 'approved') {
     $stmt->execute();
     $driver_pending_result = $stmt->get_result();
     $driver_pending_count = $driver_pending_result->fetch_assoc()['pending_count'];
+    $stmt->close();
+}
+
+// --- TAMBAHAN BARU: Reset update count bila user dah masuk page ini ---
+// Kita update semua booking user ini menjadi 'Seen' (1)
+if ($passenger_update_count > 0) {
+    $reset_seen_sql = "UPDATE booking SET IsSeenByPassenger = 1 WHERE UserID = ? AND IsSeenByPassenger = 0";
+    $stmt = $conn->prepare($reset_seen_sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
     $stmt->close();
 }
 
@@ -169,8 +190,17 @@ $conn->close();
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && $driver['Status'] === 'approved' && $driver_pending_count > 0): ?>
-                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+                            <?php
+                            // Logic dot: Ada request untuk driver ATAU ada update status untuk passenger
+                            $total_notifications = 0;
+                            if ($is_driver && $driver['Status'] === 'approved') {
+                                $total_notifications += $driver_pending_count;
+                            }
+                            $total_notifications += $passenger_update_count; // Tambah update count passenger
+                            ?>
+
+                            <?php if ($total_notifications > 0): ?>
+                                <span class="notification-dot" title="<?php echo $total_notifications; ?> updates"></span>
                             <?php endif; ?>
                         </a>
                     </li>
@@ -259,6 +289,11 @@ $conn->close();
                                             <span class="status-badge <?php echo $status_class; ?>">
                                                 <?php echo $booking['BookingStatus']; ?>
                                             </span>
+                                            <?php if ($booking['IsSeenByPassenger'] == 0): ?>
+                                                <span class="status-badge status-info" style="margin-left: 5px; background-color: #3498db;">
+                                                    New Update
+                                                </span>
+                                            <?php endif; ?>
                                             <?php if ($booking['BookingStatus'] == 'Paid' && $payment_status == 'paid' && $has_review): ?>
                                                 <span class="status-reviewed">
                                                     <i class="fa-solid fa-star"></i>

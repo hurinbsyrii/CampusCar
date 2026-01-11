@@ -231,7 +231,7 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                 <section class="stats-section">
                     <h2><i class="fa-solid fa-id-card"></i> Driver Management</h2>
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <!-- <div class="stat-card">
                             <div class="stat-icon total">
                                 <i class="fa-solid fa-users"></i>
                             </div>
@@ -240,7 +240,7 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                                 <span class="stat-number"><?php echo $total_drivers; ?></span>
                                 <span class="stat-change">All registered drivers</span>
                             </div>
-                        </div>
+                        </div> -->
 
                         <div class="stat-card">
                             <div class="stat-icon pending">

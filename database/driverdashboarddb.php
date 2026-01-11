@@ -906,7 +906,8 @@ function cancelRide()
 
         // 3. Update associated Bookings to 'Cancelled'
         // This ensures passengers see the status change
-        $updateBookings = $conn->prepare("UPDATE booking SET BookingStatus = 'Cancelled', CancellationReason = 'Ride cancelled by driver' WHERE RideID = ? AND BookingStatus IN ('Pending', 'Confirmed')");
+        // Added IsSeenByPassenger = 0 to trigger the Green Dot on passenger dashboard
+        $updateBookings = $conn->prepare("UPDATE booking SET BookingStatus = 'Cancelled', CancellationReason = 'Ride cancelled by driver', IsSeenByPassenger = 0 WHERE RideID = ? AND BookingStatus IN ('Pending', 'Confirmed')");
         $updateBookings->bind_param("i", $rideId);
         $updateBookings->execute();
 

@@ -30,7 +30,7 @@ $user_id = $_SESSION['user_id'];
 $is_driver = false;
 $driver_id = null;
 $user_gender = '';
-$driver_status = ''; // Tambah variable ni
+$driver_status = '';
 
 // Get user gender
 $user_sql = "SELECT Gender FROM user WHERE UserID = ?";
@@ -41,13 +41,11 @@ $user_result = $stmt->get_result();
 if ($user_result->num_rows > 0) {
     $user_data = $user_result->fetch_assoc();
     $user_gender = $user_data['Gender'];
-    // Store gender in session for later use
     $_SESSION['user_gender'] = $user_gender;
 }
 $stmt->close();
 
-// ASAL: $driver_check_sql = "SELECT DriverID, Status FROM driver WHERE UserID = ?";
-// BARU: Tambah RejectionReason
+// Check Driver Status & Pending Requests (Logic Asal)
 $driver_check_sql = "SELECT DriverID, Status, RejectionReason FROM driver WHERE UserID = ?";
 $stmt = $conn->prepare($driver_check_sql);
 $stmt->bind_param("i", $user_id);
@@ -60,21 +58,36 @@ if ($result->num_rows > 0) {
     $is_driver = true;
     $driver_data = $result->fetch_assoc();
     $driver_id = $driver_data['DriverID'];
-    $driver_status = $driver_data['Status']; // Simpan status driver
+    $driver_status = $driver_data['Status'];
     $rejection_reason = $driver_data['RejectionReason'] ?? 'Contact admin for details.';
 
-    // NEW CODE: Count Pending Requests for this driver
-    $pending_sql = "SELECT COUNT(*) as count FROM booking b 
-                    JOIN rides r ON b.RideID = r.RideID 
-                    WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
-    $p_stmt = $conn->prepare($pending_sql);
-    $p_stmt->bind_param("i", $driver_id);
-    $p_stmt->execute();
-    $p_result = $p_stmt->get_result();
-    $driver_pending_count = $p_result->fetch_assoc()['count'];
-    $p_stmt->close();
+    // Count Pending Requests for this driver
+    if ($driver_status === 'approved') {
+        $pending_sql = "SELECT COUNT(*) as count FROM booking b 
+                        JOIN rides r ON b.RideID = r.RideID 
+                        WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+        $p_stmt = $conn->prepare($pending_sql);
+        $p_stmt->bind_param("i", $driver_id);
+        $p_stmt->execute();
+        $p_result = $p_stmt->get_result();
+        $driver_pending_count = $p_result->fetch_assoc()['count'];
+        $p_stmt->close();
+    }
 }
 $stmt->close();
+
+// --- TAMBAHAN BARU: Kira status passenger yang berubah (IsSeenByPassenger = 0) ---
+$passenger_update_count = 0;
+$passenger_updates_sql = "SELECT COUNT(*) as update_count 
+                          FROM booking 
+                          WHERE UserID = ? AND IsSeenByPassenger = 0";
+$stmt = $conn->prepare($passenger_updates_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$update_result = $stmt->get_result();
+$passenger_update_count = $update_result->fetch_assoc()['update_count'];
+$stmt->close();
+// --------------------------------------------------------------------------------
 
 // Get user's booking count for stats
 $booking_count_sql = "SELECT COUNT(*) as booking_count FROM booking WHERE UserID = ?";
@@ -105,21 +118,18 @@ $rides_sql = "SELECT r.*, u.FullName AS DriverName, u.PhoneNumber, d.UserID as D
 $params = [];
 $param_types = "";
 
-// Filter by from location
 if (!empty($from_location)) {
     $rides_sql .= " AND r.FromLocation LIKE ?";
     $params[] = "%" . $from_location . "%";
     $param_types .= "s";
 }
 
-// Filter by to location
 if (!empty($to_location)) {
     $rides_sql .= " AND r.ToLocation LIKE ?";
     $params[] = "%" . $to_location . "%";
     $param_types .= "s";
 }
 
-// Filter by specific date or filter type
 if (!empty($ride_date)) {
     $rides_sql .= " AND r.RideDate = ?";
     $params[] = $ride_date;
@@ -133,16 +143,13 @@ if (!empty($ride_date)) {
             $rides_sql .= " AND r.RideDate = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
             break;
         case 'week':
-            // This week: from Monday to Sunday of current week
             $rides_sql .= " AND YEARWEEK(r.RideDate, 1) = YEARWEEK(CURDATE(), 1)";
-            // Note: YEARWEEK(date, mode) with mode=1 means week starts on Monday
             break;
     }
 }
 
 $rides_sql .= " ORDER BY r.RideDate, r.DepartureTime";
 
-// Prepare and execute query
 if (count($params) > 0) {
     $stmt = $conn->prepare($rides_sql);
     $stmt->bind_param($param_types, ...$params);
@@ -154,14 +161,13 @@ if (count($params) > 0) {
 
 // Get total count for stats (without filters)
 $total_rides_sql = "SELECT COUNT(*) as total FROM rides 
-                   WHERE Status = 'available' 
-                   AND AvailableSeats > 0
-                   AND (RideDate > CURDATE() 
-                        OR (RideDate = CURDATE() AND DepartureTime > CURTIME()))";
+                    WHERE Status = 'available' 
+                    AND AvailableSeats > 0
+                    AND (RideDate > CURDATE() 
+                         OR (RideDate = CURDATE() AND DepartureTime > CURTIME()))";
 $total_result = $conn->query($total_rides_sql);
 $total_rides = $total_result->fetch_assoc()['total'];
 
-// Get current week range for display
 $monday = date('Y-m-d', strtotime('monday this week'));
 $sunday = date('Y-m-d', strtotime('sunday this week'));
 $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime($sunday));
@@ -232,7 +238,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
 
 <body>
     <div class="dashboard-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="user-avatar">
@@ -243,11 +248,9 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
 
                     <span class="user-role">
                         <?php
-                        // HANYA tunjuk 'Driver' jika status APPROVED
                         if ($is_driver && $driver_status === 'approved') {
                             echo 'Driver';
                         } else {
-                            // Jika Pending, Rejected, atau bukan driver -> Tunjuk Passenger
                             echo 'Passenger';
                         }
                         ?>
@@ -295,14 +298,29 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                             </a>
                         </li>
                     <?php endif; ?>
+
                     <li class="nav-item" data-section="bookings" data-count="<?php echo $booking_count; ?>">
                         <a href="mybookings.php" class="nav-link">
                             <div class="nav-link-content">
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && $driver_pending_count > 0): ?>
-                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+
+                            <?php
+                            // LOGIC DOT GABUNGAN: Driver Request + Passenger Updates
+                            $total_notifications = 0;
+
+                            // Jika driver, tambah pending request
+                            if ($is_driver && $driver_status === 'approved') {
+                                $total_notifications += $driver_pending_count;
+                            }
+
+                            // Tambah update status untuk passenger
+                            $total_notifications += $passenger_update_count;
+                            ?>
+
+                            <?php if ($total_notifications > 0): ?>
+                                <span class="notification-dot" title="<?php echo $total_notifications; ?> updates"></span>
                             <?php endif; ?>
                         </a>
                     </li>
@@ -324,12 +342,9 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Header -->
             <header class="dashboard-header">
                 <div class="header-content">
-                    <!-- Sidebar toggle button -->
                     <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
                         <i class="fa-solid fa-bars"></i>
                     </button>
@@ -351,9 +366,7 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                 </div>
             </header>
 
-            <!-- Main Content -->
             <main class="dashboard-main">
-                <!-- Driver Status Section -->
                 <section class="status-section">
                     <div class="status-card <?php
                                             if (!$is_driver) echo 'driver-inactive';
@@ -406,7 +419,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                     </div>
                 </section>
 
-                <!-- Quick Stats -->
                 <section class="stats-section">
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -444,7 +456,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                     </div>
                 </section>
 
-                <!-- Search Section -->
                 <section class="search-section">
                     <div class="section-header">
                         <h2><i class="fa-solid fa-search"></i> Find Rides</h2>
@@ -496,7 +507,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                                 <?php endif; ?>
                             </div>
 
-                            <!-- Quick Date Filters -->
                             <div class="quick-filters">
                                 <span class="filter-label">Quick Filter:</span>
                                 <button type="button"
@@ -540,7 +550,6 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                     </div>
                 </section>
 
-                <!-- Available Rides Section -->
                 <section class="rides-section">
                     <div class="section-header">
                         <h2><i class="fa-solid fa-list"></i> Available Rides</h2>

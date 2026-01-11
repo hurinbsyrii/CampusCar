@@ -1,14 +1,11 @@
 <?php
 session_start();
 header('Content-Type: application/json');
+date_default_timezone_set('Asia/Kuala_Lumpur'); // Set timezone Malaysia
 
 // For debugging - remove in production
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-
-// Quick check - is the script being called?
-error_log("=== PAYMENT SCRIPT CALLED ===");
-error_log("Time: " . date('Y-m-d H:i:s'));
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'message' => 'Not logged in']);
@@ -20,8 +17,6 @@ $user_id = $_SESSION['user_id'];
 $booking_id = $_POST['booking_id'] ?? null;
 $amount = $_POST['amount'] ?? null;
 $payment_method = $_POST['payment_method'] ?? 'cash';
-
-error_log("User: $user_id, Booking: $booking_id, Amount: $amount, Method: $payment_method");
 
 // Basic validation
 if (!$booking_id || !$amount) {
@@ -70,29 +65,49 @@ try {
     $proof_path = null;
     $bank_info = null;
 
-    // Handle file upload if exists
-    if ($payment_method === 'online_banking' && isset($_FILES['proof'])) {
-        $file = $_FILES['proof'];
-        if ($file['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = "../uploads/payment_proofs/";
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
+    // --- LOGIC UPLOAD GAMBAR YANG DIBETULKAN (FIXED) ---
+    $file_to_upload = null;
 
-            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    // Tentukan input file mana nak guna berdasarkan method
+    if ($payment_method === 'online_banking' && isset($_FILES['proof'])) {
+        $file_to_upload = $_FILES['proof'];
+        $bank_info = $_POST['bank_name'] ?? null;
+    } elseif ($payment_method === 'qr' && isset($_FILES['qr_proof'])) {
+        $file_to_upload = $_FILES['qr_proof'];
+        // Bank info null untuk QR
+    }
+
+    // Proses upload jika ada file
+    if ($file_to_upload && $file_to_upload['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = "../uploads/payment_proofs/";
+
+        // Buat folder jika tiada
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+
+        $ext = strtolower(pathinfo($file_to_upload['name'], PATHINFO_EXTENSION));
+        // Validasi extension mudah
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'])) {
             $filename = "proof_{$booking_id}_{$user_id}_" . time() . ".{$ext}";
-            move_uploaded_file($file['tmp_name'], $upload_dir . $filename);
-            $proof_path = "uploads/payment_proofs/" . $filename;
-            $bank_info = $_POST['bank_name'] ?? null;
+
+            if (move_uploaded_file($file_to_upload['tmp_name'], $upload_dir . $filename)) {
+                $proof_path = "uploads/payment_proofs/" . $filename;
+            } else {
+                throw new Exception("Failed to move uploaded file");
+            }
+        } else {
+            throw new Exception("Invalid file type. Only JPG, PNG, PDF allowed.");
         }
     }
+    // --- TAMAT FIX ---
 
     // 4. Insert payment record
     $stmt = $conn->prepare("INSERT INTO payments (BookingID, UserID, Amount, PaymentMethod, BankInfo, PaymentStatus, ProofPath, TransactionID, PaymentDate) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, NOW())");
     $stmt->bind_param("iidssss", $booking_id, $user_id, $amount, $payment_method, $bank_info, $proof_path, $transaction_id);
 
     if (!$stmt->execute()) {
-        throw new Exception("Failed to save payment");
+        throw new Exception("Failed to save payment: " . $stmt->error);
     }
 
     $payment_id = $conn->insert_id;
@@ -104,7 +119,7 @@ try {
     $stmt->execute();
     $stmt->close();
 
-    // 6. Record driver earnings if needed
+    // 6. Record driver earnings
     $stmt = $conn->prepare("SELECT r.DriverID FROM rides r JOIN booking b ON r.RideID = b.RideID WHERE b.BookingID = ?");
     $stmt->bind_param("i", $booking_id);
     $stmt->execute();
@@ -129,8 +144,6 @@ try {
         'amount' => $amount,
         'transaction_id' => $transaction_id
     ]);
-
-    error_log("Payment successful for booking $booking_id");
 } catch (Exception $e) {
     error_log("Payment error: " . $e->getMessage());
     echo json_encode([

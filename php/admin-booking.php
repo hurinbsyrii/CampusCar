@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+date_default_timezone_set('Asia/Kuala_Lumpur');
+
 // Ensure admin is logged in
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: login.php");
@@ -18,6 +20,8 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+
+$conn->query("SET time_zone = '+08:00'");
 
 // Handle Export CSV
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'export_csv') {
@@ -782,7 +786,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                     <th>Booking & User</th>
                                     <th>Ride Details</th>
                                     <th>Payment Info</th>
-                                    <th>Date & Time</th>
+                                    <!-- <th>Date & Time</th> -->
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -792,8 +796,13 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                     <?php while ($booking = $result->fetch_assoc()): ?>
                                         <?php
                                         // Calculate time status
-                                        $booking_time = strtotime($booking['BookingDateTime']);
+                                        // Kita anggap database bagi masa UTC, kita convert ke KL
+                                        $dt = new DateTime($booking['BookingDateTime'], new DateTimeZone('UTC'));
+                                        $dt->setTimezone(new DateTimeZone('Asia/Kuala_Lumpur'));
+
+                                        $booking_time = $dt->getTimestamp(); // Masa sebenar dalam format timestamp
                                         $current_time = time();
+
                                         $time_diff = $current_time - $booking_time;
                                         $is_recent = $time_diff < 3600; // Within last hour
                                         ?>
@@ -919,23 +928,7 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div class="datetime-info">
-                                                    <p class="date">
-                                                        <i class="fa-solid fa-calendar-day"></i>
-                                                        <?php echo date('M d, Y', strtotime($booking['BookingDateTime'])); ?>
-                                                    </p>
-                                                    <p class="time">
-                                                        <i class="fa-solid fa-clock"></i>
-                                                        <?php echo date('h:i A', strtotime($booking['BookingDateTime'])); ?>
-                                                    </p>
-                                                    <?php if ($is_recent): ?>
-                                                        <p class="time-status recent">
-                                                            <i class="fa-solid fa-bolt"></i> Just Now
-                                                        </p>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
+
                                             <td>
                                                 <span class="status-badge status-<?php echo strtolower($booking['BookingStatus']); ?>">
                                                     <?php echo $booking['BookingStatus']; ?>

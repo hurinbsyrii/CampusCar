@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "Booking & User",
       "Ride Details",
       "Payment Info",
-      "Date & Time",
+      // "Date & Time",
       "Status",
       "Actions",
     ];
@@ -528,7 +528,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "Booking & User",
       "Ride Details",
       "Payment Info",
-      "Date & Time",
+      // "Date & Time",
       "Status",
       "Actions",
     ];

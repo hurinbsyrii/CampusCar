@@ -171,6 +171,24 @@ $total_rides = $total_result->fetch_assoc()['total'];
 $monday = date('Y-m-d', strtotime('monday this week'));
 $sunday = date('Y-m-d', strtotime('sunday this week'));
 $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime($sunday));
+
+// --- NOTIFICATION LOGIC ---
+// Fetch Notifications for the Bell Icon
+$notif_sql = "SELECT * FROM notifications WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 20";
+$stmt = $conn->prepare($notif_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$notif_result = $stmt->get_result();
+$stmt->close();
+
+// Count unread notifications specifically for the badge
+$unread_notif_sql = "SELECT COUNT(*) as count FROM notifications WHERE UserID = ? AND IsRead = 0";
+$stmt = $conn->prepare($unread_notif_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$unread_notif_result = $stmt->get_result();
+$unread_notif_count = $unread_notif_result->fetch_assoc()['count'];
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -232,6 +250,176 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
 
         .current-filter-info i {
             color: var(--primary-color);
+        }
+
+        /* --- Notification Bell Styles --- */
+        .notification-wrapper {
+            position: relative;
+            margin-right: 20px;
+        }
+
+        .notif-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #64748b;
+            cursor: pointer;
+            position: relative;
+            padding: 5px;
+            transition: color 0.3s;
+        }
+
+        .notif-btn:hover {
+            color: var(--primary-color);
+        }
+
+        .notif-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            border: 2px solid #fff;
+        }
+
+        /* Dropdown Styles */
+        .notif-dropdown {
+            display: none;
+            /* Hidden by default */
+            position: absolute;
+            top: 100%;
+            right: -80px;
+            /* Adjust alignment */
+            width: 320px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            margin-top: 15px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .notif-dropdown.show {
+            display: block;
+            animation: slideDown 0.2s ease-out;
+        }
+
+        .notif-header {
+            padding: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+
+        .notif-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .notif-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            gap: 12px;
+            transition: background 0.2s;
+        }
+
+        .notif-item:hover {
+            background: #f8fafc;
+        }
+
+        .notif-item.unread {
+            background: #eff6ff;
+        }
+
+        .notif-icon {
+            flex-shrink: 0;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .notif-icon.success {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .notif-icon.warning {
+            background: #fef9c3;
+            color: #ca8a04;
+        }
+
+        .notif-icon.info {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .notif-icon.error {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .notif-content h4 {
+            margin: 0 0 4px;
+            font-size: 0.85rem;
+            color: #1e293b;
+        }
+
+        .notif-content p {
+            margin: 0;
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .notif-time {
+            display: block;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .no-notif {
+            padding: 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Pastikan ini ada dalam style anda */
+        .notif-item {
+            background: white;
+            /* Warna lepas dah baca (Read) */
+            transition: background-color 0.3s ease;
+        }
+
+        .notif-item.unread {
+            background-color: #eff6ff;
+            /* Warna biru cair untuk belum baca (Unread) */
         }
     </style>
 </head>
@@ -353,17 +541,83 @@ $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime
                         <span>CampusCar</span>
                     </div>
                     <div class="header-actions">
-                        <div class="user-welcome">
-                            <i class="fa-solid fa-user-circle"></i>
-                            <span>Welcome, <?php echo $_SESSION['full_name'] ?? 'User'; ?></span>
-                            <span class="user-gender-badge">(<?php echo ucfirst($user_gender); ?>)</span>
+                        <div class="header-actions">
+
+                            <div class="notification-wrapper">
+                                <button class="notif-btn" onclick="toggleNotifications(event)">
+                                    <i class="fa-solid fa-bell"></i>
+                                    <?php if ($unread_notif_count > 0): ?>
+                                        <span class="notif-badge"><?php echo $unread_notif_count; ?></span>
+                                    <?php endif; ?>
+                                </button>
+
+                                <div class="notif-dropdown" id="notifDropdown">
+                                    <div class="notif-header">
+                                        <span>Notifications</span>
+                                        <span style="font-size: 0.75rem; color: #64748b;"><?php echo $unread_notif_count; ?> Unread</span>
+                                    </div>
+                                    <div class="notif-list">
+                                        <?php if ($notif_result->num_rows > 0): ?>
+                                            <?php while ($notif = $notif_result->fetch_assoc()):
+                                                // Determine icon based on Type
+                                                $icon_class = 'fa-info';
+                                                $bg_class = 'info';
+                                                if ($notif['Type'] == 'success') {
+                                                    $icon_class = 'fa-check';
+                                                    $bg_class = 'success';
+                                                }
+                                                if ($notif['Type'] == 'warning') {
+                                                    $icon_class = 'fa-exclamation';
+                                                    $bg_class = 'warning';
+                                                }
+                                                if ($notif['Type'] == 'error') {
+                                                    $icon_class = 'fa-times';
+                                                    $bg_class = 'error';
+                                                }
+
+                                                // Format date
+                                                $time_ago = time() - strtotime($notif['CreatedAt']);
+                                                if ($time_ago < 60) {
+                                                    $time_text = "Just now";
+                                                } elseif ($time_ago < 3600) {
+                                                    $time_text = floor($time_ago / 60) . " mins ago";
+                                                } elseif ($time_ago < 86400) {
+                                                    $time_text = floor($time_ago / 3600) . " hours ago";
+                                                } else {
+                                                    $time_text = date('d M, h:i A', strtotime($notif['CreatedAt']));
+                                                }
+                                            ?>
+                                                <div class="notif-item <?php echo ($notif['IsRead'] == 0) ? 'unread' : ''; ?>">
+                                                    <div class="notif-icon <?php echo $bg_class; ?>">
+                                                        <i class="fa-solid <?php echo $icon_class; ?>"></i>
+                                                    </div>
+                                                    <div class="notif-content">
+                                                        <h4><?php echo htmlspecialchars($notif['Title']); ?></h4>
+                                                        <p><?php echo htmlspecialchars($notif['Message']); ?></p>
+                                                        <span class="notif-time"><?php echo $time_text; ?></span>
+                                                    </div>
+                                                </div>
+                                            <?php endwhile; ?>
+                                        <?php else: ?>
+                                            <div class="no-notif">
+                                                <i class="fa-regular fa-bell-slash" style="font-size: 1.5rem; margin-bottom: 10px; display:block;"></i>
+                                                No notifications yet
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="user-welcome">
+                                <i class="fa-solid fa-user-circle"></i>
+                                <span>Welcome, <?php echo $_SESSION['full_name'] ?? 'User'; ?></span>
+                                <span class="user-gender-badge">(<?php echo ucfirst($user_gender); ?>)</span>
+                            </div>
+                            <a href="userprofile.php" class="profile-btn">
+                                <i class="fa-solid fa-user"></i>
+                                My Profile
+                            </a>
                         </div>
-                        <a href="userprofile.php" class="profile-btn">
-                            <i class="fa-solid fa-user"></i>
-                            My Profile
-                        </a>
                     </div>
-                </div>
             </header>
 
             <main class="dashboard-main">

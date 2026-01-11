@@ -290,3 +290,72 @@ function showRejectedAlert(reason) {
   // Atau boleh guna alert browser biasa jika mesej terlalu panjang
   // alert("Application Rejected.\nReason: " + reason);
 }
+
+// Toggle Notification Dropdown
+// Toggle Notification Dropdown & Mark as Read
+function toggleNotifications(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById("notifDropdown");
+  const badge = document.querySelector(".notif-badge"); // Cari badge merah
+  const notifItems = document.querySelectorAll(".notif-item.unread"); // Cari item yang belum baca
+
+  // Toggle show/hide
+  dropdown.classList.toggle("show");
+
+  // LOGIC BARU: Jika dropdown dibuka dan badge masih wujud
+  if (dropdown.classList.contains("show") && badge) {
+    // 1. UI: Hilangkan badge merah serta-merta (Visual)
+    badge.style.display = "none";
+
+    // 2. UI: Tukar warna background item dari biru cair (unread) ke putih biasa
+    notifItems.forEach((item) => {
+      item.classList.remove("unread");
+    });
+
+    // 3. BACKEND: Hantar request ke database secara senyap (AJAX)
+    fetch("mark_read.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Notifications marked as read:", data.status);
+      })
+      .catch((error) => {
+        console.error("Error marking notifications:", error);
+      });
+  }
+}
+
+// (Kekalkan kod event listener click outside yang sedia ada)
+document.addEventListener("click", function (event) {
+  const dropdown = document.getElementById("notifDropdown");
+  const button = document.querySelector(".notif-btn");
+
+  if (
+    dropdown &&
+    dropdown.classList.contains("show") &&
+    !button.contains(event.target) &&
+    !dropdown.contains(event.target)
+  ) {
+    dropdown.classList.remove("show");
+  }
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", function (event) {
+  const dropdown = document.getElementById("notifDropdown");
+  const button = document.querySelector(".notif-btn");
+
+  // If dropdown is open AND click is NOT on the button AND NOT inside the dropdown
+  if (
+    dropdown &&
+    dropdown.classList.contains("show") &&
+    !button.contains(event.target) &&
+    !dropdown.contains(event.target)
+  ) {
+    dropdown.classList.remove("show");
+  }
+});

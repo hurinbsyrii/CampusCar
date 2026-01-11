@@ -137,6 +137,7 @@ $stmt->close();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 </head>
 
 <body>
@@ -313,6 +314,7 @@ $stmt->close();
                                     <th>Price</th>
                                     <th>Status</th>
                                     <th>Female Only</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -326,6 +328,13 @@ $stmt->close();
                                         <td>RM <?php echo number_format($ride['PricePerSeat'], 2); ?></td>
                                         <td><span class="status-badge <?php echo $ride['Status']; ?>"><?php echo ucfirst($ride['Status']); ?></span></td>
                                         <td><?php echo $ride['FemaleOnly'] ? 'Yes' : 'No'; ?></td>
+                                        <td>
+                                            <?php if ($ride['Status'] === 'available'): ?>
+                                                <button class="action-btn cancel-btn" onclick="cancelRide(<?php echo $ride['RideID']; ?>)" title="Cancel Ride">
+                                                    <i class="fa-solid fa-ban"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -1218,7 +1227,46 @@ $stmt->close();
                 });
             });
         });
+
+        async function cancelRide(rideId) {
+            // Pastikan driver ID diambil dari PHP
+            const currentDriverId = <?php echo $driver_id; ?>;
+
+            if (!confirm("Are you sure you want to cancel this ride? This will cancel all pending bookings.")) {
+                return;
+            }
+
+            try {
+                // PERUBAHAN PENTING DI SINI:
+                // Kita tambah '&driverId=' + currentDriverId pada URL
+                const url = `../database/driverdashboarddb.php?action=cancelRide&driverId=${currentDriverId}`;
+
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        rideId: rideId,
+                        driverId: currentDriverId
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert("Ride cancelled successfully");
+                    location.reload();
+                } else {
+                    alert(result.message || "Failed to cancel ride");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("An error occurred while connecting to the server.");
+            }
+        }
     </script>
+
 </body>
 
 </html>

@@ -1,5 +1,5 @@
 <?php
-require_once 'config/database.php';
+require_once '../config/database.php';
 
 header('Content-Type: application/json');
 
@@ -61,6 +61,10 @@ switch ($action) {
     case 'paymentProofs':
         $proofs = getPaymentProofs($driverId);
         echo json_encode(['success' => true, 'proofs' => $proofs]);
+        break;
+
+    case 'cancelRide':
+        cancelRide();
         break;
 
     default:
@@ -857,4 +861,77 @@ function getPaymentProofs($driverId)
     }
 
     return $proofs;
+}
+
+function cancelRide()
+{
+    global $conn;
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $rideId = $input['rideId'] ?? 0;
+    $driverId = $input['driverId'] ?? 0;
+
+    if (!$rideId || !$driverId) {
+        echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+        return;
+    }
+
+    // 1. Verify ownership and status
+    // We only allow cancellation if status is 'available'
+    $checkQuery = "SELECT Status FROM rides WHERE RideID = ? AND DriverID = ?";
+    $stmt = $conn->prepare($checkQuery);
+    $stmt->bind_param("ii", $rideId, $driverId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode(['success' => false, 'message' => 'Ride not found or access denied']);
+        return;
+    }
+
+    $ride = $result->fetch_assoc();
+    if ($ride['Status'] !== 'available') {
+        echo json_encode(['success' => false, 'message' => 'Only available rides can be cancelled']);
+        return;
+    }
+
+    // Start Transaction
+    $conn->begin_transaction();
+
+    try {
+        // 2. Update Ride Status to 'cancelled'
+        $updateRide = $conn->prepare("UPDATE rides SET Status = 'cancelled' WHERE RideID = ?");
+        $updateRide->bind_param("i", $rideId);
+        $updateRide->execute();
+
+        // 3. Update associated Bookings to 'Cancelled'
+        // This ensures passengers see the status change
+        $updateBookings = $conn->prepare("UPDATE booking SET BookingStatus = 'Cancelled', CancellationReason = 'Ride cancelled by driver' WHERE RideID = ? AND BookingStatus IN ('Pending', 'Confirmed')");
+        $updateBookings->bind_param("i", $rideId);
+        $updateBookings->execute();
+
+        // 4. Notify Passengers (Fetch users who had valid bookings)
+        $findPassengers = $conn->prepare("
+            SELECT b.UserID, r.FromLocation, r.ToLocation, r.RideDate 
+            FROM booking b 
+            JOIN rides r ON b.RideID = r.RideID 
+            WHERE b.RideID = ? AND b.BookingStatus = 'Cancelled'
+        ");
+        $findPassengers->bind_param("i", $rideId);
+        $findPassengers->execute();
+        $passengers = $findPassengers->get_result();
+
+        while ($p = $passengers->fetch_assoc()) {
+            $msg = "The ride from " . $p['FromLocation'] . " to " . $p['ToLocation'] . " on " . $p['RideDate'] . " has been cancelled by the driver.";
+            $notif = $conn->prepare("INSERT INTO notifications (UserID, Title, Message, Type, RelatedID, RelatedType) VALUES (?, 'Ride Cancelled', ?, 'warning', ?, 'ride')");
+            $notif->bind_param("isi", $p['UserID'], $msg, $rideId);
+            $notif->execute();
+        }
+
+        $conn->commit();
+        echo json_encode(['success' => true, 'message' => 'Ride cancelled successfully']);
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }

@@ -698,3 +698,21 @@
         justify-content: center;
     }
 }
+
+.action-btn {
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+    transition: background 0.2s;
+}
+
+.cancel-btn {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+.cancel-btn:hover {
+    background-color: #ffcdd2;
+}

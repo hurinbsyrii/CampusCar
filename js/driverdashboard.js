@@ -475,7 +475,7 @@ function updateRideHistoryTable(rides) {
 
   if (rides.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="7" class="no-data">No rides found</td></tr>';
+      '<tr><td colspan="8" class="no-data">No rides found</td></tr>'; // Increased colspan to 8
     return;
   }
 
@@ -483,27 +483,21 @@ function updateRideHistoryTable(rides) {
     .map(
       (ride) => `
         <tr>
-            <td>${ride.date} ${ride.time}</td>
+            <td>#${ride.id}</td>
             <td>${ride.from}</td>
             <td>${ride.to}</td>
-            <td>${ride.passengers}</td>
-            <td>RM ${ride.earnings}</td>
+            <td>${ride.date} ${ride.time}</td>
+            <td>${ride.seats}</td>
+            <td>RM ${ride.price}</td>
             <td><span class="status-badge ${ride.status}">${
         ride.status
       }</span></td>
-            <td>
-                <button class="action-btn view-btn" onclick="viewRideDetails(${
-                  ride.id
-                })">
-                    <i class="fas fa-eye"></i>
-                </button>
+            <td>${ride.femaleOnly ? "Yes" : "No"}</td> <td>
                 ${
                   ride.status === "available"
-                    ? `
-                <button class="action-btn edit-btn" onclick="editRide(${ride.id})">
-                    <i class="fas fa-edit"></i>
-                </button>
-                `
+                    ? `<button class="action-btn cancel-btn" onclick="cancelRide(${ride.id})" title="Cancel Ride">
+                        <i class="fas fa-ban"></i>
+                       </button>`
                     : ""
                 }
             </td>

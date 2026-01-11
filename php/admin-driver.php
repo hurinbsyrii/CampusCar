@@ -406,14 +406,14 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                                                             <i class="fa-solid fa-ban"></i> Revoke
                                                         </button>
                                                     <?php elseif ($driver['Status'] === 'rejected'): ?>
-                                                        <button class="action-btn review-btn" data-id="<?php echo $driver['DriverID']; ?>">
+                                                        <!-- <button class="action-btn review-btn" data-id="<?php echo $driver['DriverID']; ?>">
                                                             <i class="fa-solid fa-eye"></i> Review
-                                                        </button>
+                                                        </button> -->
                                                     <?php endif; ?>
 
-                                                    <button class="action-btn view-btn" data-id="<?php echo $driver['DriverID']; ?>">
+                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $driver['DriverID']; ?>">
                                                         <i class="fa-solid fa-eye"></i> View
-                                                    </button>
+                                                    </button> -->
                                                 </div>
                                             </td>
                                         </tr>

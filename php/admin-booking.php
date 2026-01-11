@@ -882,10 +882,10 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                             </span>
                                                         </p>
                                                         <?php if (!empty($booking['TransactionID'])): ?>
-                                                            <p>
+                                                            <!-- <p>
                                                                 <strong>Transaction:</strong>
                                                                 <span class="transaction-id"><?php echo $booking['TransactionID']; ?></span>
-                                                            </p>
+                                                            </p> -->
                                                         <?php endif; ?>
                                                         <?php if (!empty($booking['ProofPath'])): ?>
                                                             <p>

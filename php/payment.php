@@ -220,7 +220,7 @@ $conn->close();
                             <h3>Payment Already Completed!</h3>
                             <p>Your payment has been processed successfully.</p>
                             <div class="payment-details">
-                                <p><strong>Transaction ID:</strong> <?php echo htmlspecialchars($existing_payment['TransactionID'] ?? 'N/A'); ?></p>
+                                <!-- <p><strong>Transaction ID:</strong> <?php echo htmlspecialchars($existing_payment['TransactionID'] ?? 'N/A'); ?></p> -->
                                 <p><strong>Payment Date:</strong> <?php echo date('F j, Y g:i A', strtotime($existing_payment['PaymentDate'])); ?></p>
                                 <p><strong>Payment Method:</strong> <?php echo ucfirst($existing_payment['PaymentMethod']); ?></p>
                             </div>
@@ -381,11 +381,11 @@ $conn->close();
                                                 </select>
                                             </div>
                                             <!-- Change these lines in the online banking section -->
-                                            <div class="form-group">
+                                            <!-- <div class="form-group">
                                                 <label for="transaction_id">Transaction ID/Reference (optional)</label>
                                                 <input type="text" id="transaction_id" name="transaction_id"
                                                     class="form-control" placeholder="Enter transaction reference">
-                                            </div>
+                                            </div> -->
                                             <div class="form-group">
                                                 <label for="proof">Upload Proof of Payment</label>
                                                 <input type="file" id="proof" name="proof"
@@ -397,11 +397,11 @@ $conn->close();
                                         <!-- QR Payment Details (Hidden by default) -->
                                         <div id="qrPaymentDetails" class="payment-details-section" style="display: none;">
                                             <h4><i class="fa-solid fa-qrcode"></i> QR Payment Details</h4>
-                                            <div class="form-group">
+                                            <!-- <div class="form-group">
                                                 <label for="qr_transaction_id">Transaction ID/Reference (optional)</label>
                                                 <input type="text" id="qr_transaction_id" name="qr_transaction_id"
                                                     class="form-control" placeholder="Enter transaction reference">
-                                            </div>
+                                            </div> -->
                                             <div class="form-group">
                                                 <label for="qr_proof">Upload Proof of Payment</label>
                                                 <input type="file" id="qr_proof" name="qr_proof"

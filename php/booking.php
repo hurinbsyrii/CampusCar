@@ -45,6 +45,22 @@ if ($ride_result->num_rows === 0) {
 $ride = $ride_result->fetch_assoc();
 $stmt->close();
 
+// Get Driver Rating & Count
+$driver_id = $ride['DriverID'];
+$rating_sql = "SELECT AVG(Rating) as avg_rating, COUNT(ReviewID) as total_reviews 
+               FROM reviews 
+               WHERE DriverID = ?";
+$stmt = $conn->prepare($rating_sql);
+$stmt->bind_param("i", $driver_id);
+$stmt->execute();
+$rating_result = $stmt->get_result();
+$rating_data = $rating_result->fetch_assoc();
+$stmt->close();
+
+// Format rating: Jika tiada review, letak 0. Jika ada, bundarkan kepada 1 tempat perpuluhan (contoh: 4.5)
+$average_rating = $rating_data['avg_rating'] ? number_format($rating_data['avg_rating'], 1) : 0;
+$total_reviews = $rating_data['total_reviews'];
+
 // Ensure FemaleOnly key exists
 if (!isset($ride['FemaleOnly'])) {
     $ride['FemaleOnly'] = 0;
@@ -436,13 +452,32 @@ $conn->close();
                                     <i class="fa-solid fa-id-card"></i>
                                     <?php echo htmlspecialchars($ride['CarPlateNumber']); ?>
                                 </span>
-                                <span class="driver-rating">
-                                    <i class="fa-solid fa-star"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                    <i class="fa-solid fa-star"></i>
-                                    <i class="fa-solid fa-star-half-alt"></i>
-                                    4.5
+
+                                <span class="driver-rating" style="color: #ffc107; display: flex; align-items: center; gap: 5px;">
+                                    <span class="stars">
+                                        <?php
+                                        for ($i = 1; $i <= 5; $i++) {
+                                            if ($average_rating >= $i) {
+                                                // Bintang Penuh
+                                                echo '<i class="fa-solid fa-star"></i>';
+                                            } elseif ($average_rating >= ($i - 0.5)) {
+                                                // Separuh Bintang
+                                                echo '<i class="fa-solid fa-star-half-stroke"></i>';
+                                            } else {
+                                                // Bintang Kosong (Guna fa-regular jika nak outline sahaja, atau fa-solid dengan warna kelabu)
+                                                echo '<i class="fa-regular fa-star" style="color: #ccc;"></i>';
+                                            }
+                                        }
+                                        ?>
+                                    </span>
+                                    <span style="color: #333; font-weight: 600; font-size: 0.9rem;">
+                                        <?php echo $average_rating > 0 ? $average_rating : 'New'; ?>
+                                    </span>
+                                    <?php if ($total_reviews > 0): ?>
+                                        <span style="color: #666; font-size: 0.8rem; font-weight: normal;">
+                                            (<?php echo $total_reviews; ?>)
+                                        </span>
+                                    <?php endif; ?>
                                 </span>
                             </div>
                         </div>

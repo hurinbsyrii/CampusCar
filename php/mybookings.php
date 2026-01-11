@@ -360,10 +360,10 @@ $conn->close();
                                                         </a>
                                                     <?php endif; ?>
 
-                                                    <button class="btn btn-primary" onclick="contactDriver('<?php echo htmlspecialchars($booking['DriverPhone']); ?>')">
+                                                    <!-- <button class="btn btn-primary" onclick="contactDriver('<?php echo htmlspecialchars($booking['DriverPhone']); ?>')">
                                                         <i class="fa-solid fa-phone"></i>
                                                         Contact Driver
-                                                    </button>
+                                                    </button> -->
                                                 </div>
                                             </div>
                                         </div>

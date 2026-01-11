@@ -46,18 +46,33 @@ if ($driver_result->num_rows > 0) {
     $is_driver = true;
     $driver_data = $driver_result->fetch_assoc();
 
-    // NEW LOGIC: Count Pending Requests
-    $pending_sql = "SELECT COUNT(*) as count FROM booking b 
-                    JOIN rides r ON b.RideID = r.RideID 
-                    WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
-    $p_stmt = $conn->prepare($pending_sql);
-    $p_stmt->bind_param("i", $driver_data['DriverID']);
-    $p_stmt->execute();
-    $p_result = $p_stmt->get_result();
-    $driver_pending_count = $p_result->fetch_assoc()['count'];
-    $p_stmt->close();
+    // Logic: Count Pending Requests for Driver (Only if approved)
+    if ($driver_data['Status'] === 'approved') {
+        $pending_sql = "SELECT COUNT(*) as count FROM booking b 
+                        JOIN rides r ON b.RideID = r.RideID 
+                        WHERE r.DriverID = ? AND b.BookingStatus = 'Pending'";
+        $p_stmt = $conn->prepare($pending_sql);
+        $p_stmt->bind_param("i", $driver_data['DriverID']);
+        $p_stmt->execute();
+        $p_result = $p_stmt->get_result();
+        $driver_pending_count = $p_result->fetch_assoc()['count'];
+        $p_stmt->close();
+    }
 }
 $stmt->close();
+
+// --- TAMBAHAN BARU: Kira status passenger yang berubah (IsSeenByPassenger = 0) ---
+$passenger_update_count = 0;
+$passenger_updates_sql = "SELECT COUNT(*) as update_count 
+                          FROM booking 
+                          WHERE UserID = ? AND IsSeenByPassenger = 0";
+$stmt = $conn->prepare($passenger_updates_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$update_result = $stmt->get_result();
+$passenger_update_count = $update_result->fetch_assoc()['update_count'];
+$stmt->close();
+// --------------------------------------------------------------------------------
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -80,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->close();
 
     // If user is driver AND approved, update driver data
-    // Tambah check status approved di sini juga untuk security backend
     if ($is_driver && isset($driver_data['Status']) && $driver_data['Status'] === 'approved' && isset($_POST['car_model']) && isset($_POST['car_plate_number'])) {
         $car_model = $_POST['car_model'];
         $car_plate_number = $_POST['car_plate_number'];
@@ -240,8 +254,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && $driver_pending_count > 0): ?>
-                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+
+                            <?php
+                            // LOGIC DOT GABUNGAN: Driver Request + Passenger Updates
+                            $total_notifications = 0;
+
+                            // Jika driver approved, tambah pending request
+                            if ($is_driver && isset($driver_data['Status']) && $driver_data['Status'] === 'approved') {
+                                $total_notifications += $driver_pending_count;
+                            }
+
+                            // Tambah update status untuk passenger
+                            $total_notifications += $passenger_update_count;
+                            ?>
+
+                            <?php if ($total_notifications > 0): ?>
+                                <span class="notification-dot" title="<?php echo $total_notifications; ?> updates"></span>
                             <?php endif; ?>
                         </a>
                     </li>

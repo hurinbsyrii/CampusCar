@@ -73,6 +73,19 @@ if ($result->num_rows > 0) {
 }
 $stmt->close();
 
+// --- TAMBAHAN BARU: Kira status passenger yang berubah (IsSeenByPassenger = 0) ---
+$passenger_update_count = 0;
+$passenger_updates_sql = "SELECT COUNT(*) as update_count 
+                          FROM booking 
+                          WHERE UserID = ? AND IsSeenByPassenger = 0";
+$stmt = $conn->prepare($passenger_updates_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$update_result = $stmt->get_result();
+$passenger_update_count = $update_result->fetch_assoc()['update_count'];
+$stmt->close();
+// --------------------------------------------------------------------------------
+
 // Get today's rides where user is involved - EXCLUDE CANCELLED BOOKINGS
 $today_rides_sql = "SELECT r.*, u.FullName as DriverName, d.CarModel, d.CarPlateNumber,
                            b.BookingID, b.BookingStatus, b.NoOfSeats, b.TotalPrice,
@@ -180,8 +193,22 @@ $conn->close();
                                 <i class="fa-solid fa-ticket"></i>
                                 <span>My Bookings</span>
                             </div>
-                            <?php if ($is_driver && $driver['Status'] === 'approved' && $driver_pending_count > 0): ?>
-                                <span class="notification-dot" title="<?php echo $driver_pending_count; ?> new requests"></span>
+
+                            <?php
+                            // LOGIC DOT GABUNGAN: Driver Request + Passenger Updates
+                            $total_notifications = 0;
+
+                            // Jika driver approved, tambah pending request
+                            if ($is_driver && isset($driver['Status']) && $driver['Status'] === 'approved') {
+                                $total_notifications += $driver_pending_count;
+                            }
+
+                            // Tambah update status untuk passenger
+                            $total_notifications += $passenger_update_count;
+                            ?>
+
+                            <?php if ($total_notifications > 0): ?>
+                                <span class="notification-dot" title="<?php echo $total_notifications; ?> updates"></span>
                             <?php endif; ?>
                         </a>
                     </li>

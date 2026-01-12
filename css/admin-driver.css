@@ -701,3 +701,83 @@
         flex-direction: column;
     }
 }
+
+/* --- PAGINATION STYLES (Copy ke admin-driver.css) --- */
+
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    /* Letak button belah kanan */
+    align-items: center;
+    padding: 20px 15px;
+    border-top: 1px solid #e5e7eb;
+    background-color: white;
+    gap: 15px;
+    border-bottom-left-radius: var(--border-radius);
+    /* Ikut bucu card */
+    border-bottom-right-radius: var(--border-radius);
+}
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    color: var(--text-color);
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Hover Effect untuk Button Aktif */
+.pagination-btn:hover:not(.disabled) {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Style untuk Disabled Button (Button Mati) */
+.pagination-btn.disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+    pointer-events: none;
+    /* Halang klik */
+}
+
+/* Teks "Page 1 of 5" */
+.page-info {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Responsif untuk mobile */
+@media (max-width: 600px) {
+    .pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .page-info {
+        width: 100%;
+        order: -1;
+        /* Naikkan info page ke atas button bila mobile */
+        margin-bottom: 10px;
+    }
+}

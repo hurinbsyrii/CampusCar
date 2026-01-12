@@ -96,7 +96,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get all drivers with user details - FIXED QUERY
+// --- PAGINATION & FILTER LOGIC MULA ---
+
+// 1. Dapatkan Filter Status dari URL
+$filter_status = isset($_GET['filter']) ? $_GET['filter'] : 'all';
+
+// Validasi filter supaya user tak letak benda pelik
+$allowed_filters = ['pending', 'approved', 'rejected'];
+if (!in_array($filter_status, $allowed_filters)) {
+    $filter_status = 'all';
+}
+
+// 2. Set WHERE Clause berdasarkan filter
+$where_clause = "WHERE 1=1"; // Default select semua
+if ($filter_status !== 'all') {
+    $where_clause .= " AND d.Status = '$filter_status'";
+}
+
+// 3. Set berapa data per page
+$results_per_page = 6;
+
+// 4. Dapatkan page semasa
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+
+// 5. Kira OFFSET
+$page_first_result = ($page - 1) * $results_per_page;
+
+// 6. Kira TOTAL Data (Berdasarkan Filter)
+$count_sql = "SELECT COUNT(*) as total FROM driver d $where_clause";
+$count_result = $conn->query($count_sql);
+$count_row = $count_result->fetch_assoc();
+$total_records = $count_row['total'];
+
+// Kira jumlah page
+$number_of_pages = ceil($total_records / $results_per_page);
+
+// Validation Page
+if ($page > $number_of_pages && $number_of_pages > 0) {
+    $page = $number_of_pages;
+    $page_first_result = ($page - 1) * $results_per_page;
+}
+
+// 7. Jalankan Query Sebenar (Dengan Filter & Limit)
 $sql = "SELECT 
     d.*, 
     u.FullName, 
@@ -107,15 +149,19 @@ $sql = "SELECT
     u.Faculty
     FROM driver d 
     JOIN user u ON d.UserID = u.UserID 
+    $where_clause 
     ORDER BY 
         CASE d.Status 
             WHEN 'pending' THEN 1 
             WHEN 'rejected' THEN 2 
             ELSE 3 
         END,
-        d.RegistrationDate DESC";
+        d.RegistrationDate DESC
+    LIMIT " . $page_first_result . ',' . $results_per_page;
 
 $result = $conn->query($sql);
+
+// --- PAGINATION & FILTER LOGIC TAMAT ---
 
 // Get statistics
 $total_drivers = $conn->query("SELECT COUNT(*) as count FROM driver")->fetch_assoc()['count'];
@@ -283,10 +329,10 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                         <h3><i class="fa-solid fa-list"></i> All Driver Applications</h3>
                         <div class="section-actions">
                             <div class="filter-controls">
-                                <button class="filter-btn active" data-filter="all">All</button>
-                                <button class="filter-btn" data-filter="pending">Pending</button>
-                                <button class="filter-btn" data-filter="approved">Approved</button>
-                                <button class="filter-btn" data-filter="rejected">Rejected</button>
+                                <a href="?filter=all" class="filter-btn <?php echo $filter_status === 'all' ? 'active' : ''; ?>">All</a>
+                                <a href="?filter=pending" class="filter-btn <?php echo $filter_status === 'pending' ? 'active' : ''; ?>">Pending</a>
+                                <a href="?filter=approved" class="filter-btn <?php echo $filter_status === 'approved' ? 'active' : ''; ?>">Approved</a>
+                                <a href="?filter=rejected" class="filter-btn <?php echo $filter_status === 'rejected' ? 'active' : ''; ?>">Rejected</a>
                             </div>
                             <button id="refreshBtn" class="refresh-btn">
                                 <i class="fa-solid fa-rotate"></i> Refresh
@@ -430,6 +476,43 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                                 <?php endif; ?>
                             </tbody>
                         </table>
+                        <div class="pagination">
+                            <?php
+                            // Function helper untuk URL (supaya tak hilang filter lain jika ada)
+                            if (!function_exists('build_url')) {
+                                function build_url($page)
+                                {
+                                    $params = $_GET;
+                                    $params['page'] = $page;
+                                    return '?' . http_build_query($params);
+                                }
+                            }
+                            ?>
+
+                            <?php if ($page > 1): ?>
+                                <a href="<?php echo build_url($page - 1); ?>" class="pagination-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </button>
+                            <?php endif; ?>
+
+                            <span class="page-info">
+                                Page <?php echo $page; ?> of <?php echo ($number_of_pages > 0) ? $number_of_pages : 1; ?>
+                            </span>
+
+                            <?php if ($page < $number_of_pages): ?>
+                                <a href="<?php echo build_url($page + 1); ?>" class="pagination-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </section>
 

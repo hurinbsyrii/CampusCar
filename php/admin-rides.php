@@ -74,6 +74,69 @@ $female_only = isset($_GET['female_only']) ? $_GET['female_only'] : '';
 
 // Build query with joins
 // New Code
+// --- MULA LOGIC FILTER & PAGINATION ---
+
+// 1. Bina WHERE Clause (Asingkan supaya boleh guna untuk Count & Select)
+$where_clauses = ["1=1"]; // Default true
+
+if (!empty($search_term)) {
+    $where_clauses[] = "(r.FromLocation LIKE '%$search_term%' 
+                        OR r.ToLocation LIKE '%$search_term%'
+                        OR u.FullName LIKE '%$search_term%'
+                        OR d.CarPlateNumber LIKE '%$search_term%')";
+}
+
+if (!empty($status_filter)) {
+    if ($status_filter === 'upcoming') {
+        $where_clauses[] = "(r.Status = 'available' OR r.Status = 'in_progress') 
+                            AND (r.RideDate > CURDATE() OR (r.RideDate = CURDATE() AND r.DepartureTime > CURTIME()))";
+    } elseif ($status_filter === 'past') {
+        $where_clauses[] = "(r.Status IN ('completed', 'expired') 
+                            OR (r.RideDate < CURDATE()) 
+                            OR (r.RideDate = CURDATE() AND r.DepartureTime < CURTIME()))";
+    } else {
+        $where_clauses[] = "r.Status = '$status_filter'";
+    }
+}
+
+if (!empty($date_filter)) {
+    $where_clauses[] = "r.RideDate = '$date_filter'";
+}
+
+if ($female_only === '1') {
+    $where_clauses[] = "r.FemaleOnly = 1";
+} elseif ($female_only === '0') {
+    $where_clauses[] = "r.FemaleOnly = 0";
+}
+
+// Gabungkan semua syarat jadi string
+$where_sql = implode(' AND ', $where_clauses);
+
+// 2. Setting Pagination
+$results_per_page = 15; // Set 6 data per page
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$page_first_result = ($page - 1) * $results_per_page;
+
+// 3. Kira TOTAL Data (Guna WHERE yang sama)
+// Kita guna COUNT(DISTINCT r.RideID) sebab main query ada JOIN yang mungkin duplicate row sebelum group
+$count_sql = "SELECT COUNT(DISTINCT r.RideID) as total 
+              FROM rides r
+              LEFT JOIN driver d ON r.DriverID = d.DriverID
+              LEFT JOIN user u ON d.UserID = u.UserID
+              WHERE $where_sql";
+
+$count_result = $conn->query($count_sql);
+$total_records = $count_result->fetch_assoc()['total'];
+$number_of_pages = ceil($total_records / $results_per_page);
+
+// Validation Page
+if ($page > $number_of_pages && $number_of_pages > 0) {
+    $page = $number_of_pages;
+    $page_first_result = ($page - 1) * $results_per_page;
+}
+
+// 4. Main Query dengan LIMIT
 $sql = "SELECT 
     r.*,
     d.DriverID,
@@ -82,48 +145,21 @@ $sql = "SELECT
     u.FullName as DriverName,
     u.PhoneNumber as DriverPhone,
     COUNT(b.BookingID) as TotalBookings,
-    COALESCE(SUM(b.NoOfSeats), 0) as SeatsTaken,  /* <--- ADD THIS LINE */
+    COALESCE(SUM(b.NoOfSeats), 0) as SeatsTaken,
     COALESCE(SUM(de.Amount), 0) as TotalEarnings
     FROM rides r
     LEFT JOIN driver d ON r.DriverID = d.DriverID
     LEFT JOIN user u ON d.UserID = u.UserID
     LEFT JOIN booking b ON r.RideID = b.RideID AND b.BookingStatus NOT IN ('Cancelled')
     LEFT JOIN driver_earnings de ON r.RideID = de.RideID
-    WHERE 1=1";
-
-if (!empty($search_term)) {
-    $sql .= " AND (r.FromLocation LIKE '%$search_term%' 
-                  OR r.ToLocation LIKE '%$search_term%'
-                  OR u.FullName LIKE '%$search_term%'
-                  OR d.CarPlateNumber LIKE '%$search_term%')";
-}
-
-if (!empty($status_filter)) {
-    if ($status_filter === 'upcoming') {
-        $sql .= " AND (r.Status = 'available' OR r.Status = 'in_progress') 
-                  AND (r.RideDate > CURDATE() OR (r.RideDate = CURDATE() AND r.DepartureTime > CURTIME()))";
-    } elseif ($status_filter === 'past') {
-        $sql .= " AND (r.Status IN ('completed', 'expired') 
-                  OR (r.RideDate < CURDATE()) 
-                  OR (r.RideDate = CURDATE() AND r.DepartureTime < CURTIME()))";
-    } else {
-        $sql .= " AND r.Status = '$status_filter'";
-    }
-}
-
-if (!empty($date_filter)) {
-    $sql .= " AND r.RideDate = '$date_filter'";
-}
-
-if ($female_only === '1') {
-    $sql .= " AND r.FemaleOnly = 1";
-} elseif ($female_only === '0') {
-    $sql .= " AND r.FemaleOnly = 0";
-}
-
-$sql .= " GROUP BY r.RideID ORDER BY r.RideDate DESC, r.DepartureTime DESC";
+    WHERE $where_sql
+    GROUP BY r.RideID 
+    ORDER BY r.RideDate DESC, r.DepartureTime DESC
+    LIMIT $page_first_result, $results_per_page";
 
 $result = $conn->query($sql);
+
+// --- TAMAT LOGIC FILTER & PAGINATION ---
 
 // Get statistics
 $total_rides = $conn->query("SELECT COUNT(*) as count FROM rides")->fetch_assoc()['count'];
@@ -474,6 +510,7 @@ function exportRidesToCSV($conn)
                                         <option value="available" <?php echo $status_filter === 'available' ? 'selected' : ''; ?>>Available</option>
                                         <option value="in_progress" <?php echo $status_filter === 'in_progress' ? 'selected' : ''; ?>>In Progress</option>
                                         <option value="completed" <?php echo $status_filter === 'completed' ? 'selected' : ''; ?>>Completed</option>
+                                        <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                                         <option value="expired" <?php echo $status_filter === 'expired' ? 'selected' : ''; ?>>Expired</option>
                                         <option value="upcoming" <?php echo $status_filter === 'upcoming' ? 'selected' : ''; ?>>Upcoming</option>
                                         <option value="past" <?php echo $status_filter === 'past' ? 'selected' : ''; ?>>Past</option>
@@ -708,13 +745,41 @@ function exportRidesToCSV($conn)
 
                         <!-- Pagination -->
                         <div class="pagination">
-                            <button class="pagination-btn disabled">
-                                <i class="fa-solid fa-chevron-left"></i> Previous
-                            </button>
-                            <span class="page-info">Page 1 of 1</span>
-                            <button class="pagination-btn disabled">
-                                Next <i class="fa-solid fa-chevron-right"></i>
-                            </button>
+                            <?php
+                            // Helper function untuk kekalkan filter dalam URL
+                            if (!function_exists('build_url')) {
+                                function build_url($page)
+                                {
+                                    $params = $_GET;
+                                    $params['page'] = $page;
+                                    return '?' . http_build_query($params);
+                                }
+                            }
+                            ?>
+
+                            <?php if ($page > 1): ?>
+                                <a href="<?php echo build_url($page - 1); ?>" class="pagination-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </button>
+                            <?php endif; ?>
+
+                            <span class="page-info">
+                                Page <?php echo $page; ?> of <?php echo ($number_of_pages > 0) ? $number_of_pages : 1; ?>
+                            </span>
+
+                            <?php if ($page < $number_of_pages): ?>
+                                <a href="<?php echo build_url($page + 1); ?>" class="pagination-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </section>

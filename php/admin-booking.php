@@ -397,10 +397,10 @@ $completed_bookings = $conn->query("SELECT COUNT(*) as count FROM booking WHERE 
 $cancelled_bookings = $conn->query("SELECT COUNT(*) as count FROM booking WHERE BookingStatus = 'Cancelled'")->fetch_assoc()['count'];
 
 // Revenue statistics
-$total_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE BookingStatus IN ('Paid', 'Completed')")->fetch_assoc()['total'];
-$today_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE DATE(BookingDateTime) = CURDATE() AND BookingStatus IN ('Paid', 'Completed')")->fetch_assoc()['total'];
-$month_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE MONTH(BookingDateTime) = MONTH(CURDATE()) AND YEAR(BookingDateTime) = YEAR(CURDATE()) AND BookingStatus IN ('Paid', 'Completed')")->fetch_assoc()['total'];
-
+// Revenue statistics
+$total_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE BookingStatus = 'Paid'")->fetch_assoc()['total'];
+$today_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE DATE(BookingDateTime) = CURDATE() AND BookingStatus = 'Paid'")->fetch_assoc()['total'];
+$month_revenue = $conn->query("SELECT COALESCE(SUM(TotalPrice), 0) as total FROM booking WHERE MONTH(BookingDateTime) = MONTH(CURDATE()) AND YEAR(BookingDateTime) = YEAR(CURDATE()) AND BookingStatus = 'Paid'")->fetch_assoc()['total'];
 // Analytics data
 // Popular routes - KEPT AS REQUESTED
 $popular_routes = $conn->query("

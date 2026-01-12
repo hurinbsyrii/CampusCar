@@ -552,6 +552,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -562,6 +563,7 @@
         transform: translateY(20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -573,7 +575,7 @@
     .users-table-container {
         padding: 0 15px 15px;
     }
-    
+
     .users-table th,
     .users-table td {
         padding: 15px 10px;
@@ -584,11 +586,11 @@
     .users-table {
         display: block;
     }
-    
+
     .users-table thead {
         display: none;
     }
-    
+
     .users-table tbody tr {
         display: block;
         margin-bottom: 25px;
@@ -596,17 +598,17 @@
         border-radius: 12px;
         padding: 20px;
     }
-    
+
     .users-table td {
         display: block;
         padding: 15px 0;
         border-bottom: 1px solid #f3f4f6;
     }
-    
+
     .users-table td:last-child {
         border-bottom: none;
     }
-    
+
     .users-table td::before {
         content: attr(data-label);
         font-weight: 600;
@@ -616,30 +618,30 @@
         font-size: 0.9rem;
         text-transform: uppercase;
     }
-    
+
     .action-buttons {
         flex-direction: row;
         flex-wrap: wrap;
         justify-content: flex-start;
     }
-    
+
     .action-btn {
         width: auto;
         flex: 1;
         min-width: 120px;
     }
-    
+
     .filter-controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .filter-select,
     .filter-btn,
     .clear-btn {
         width: 100%;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10px;
@@ -650,21 +652,101 @@
     .action-buttons {
         flex-direction: column;
     }
-    
+
     .action-btn {
         width: 100%;
     }
-    
+
     .modal-actions {
         flex-direction: column;
     }
-    
+
     .user-info {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .user-avatar {
         margin: 0 auto;
+    }
+}
+
+/* --- PAGINATION STYLES (Copy ke admin-driver.css) --- */
+
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    /* Letak button belah kanan */
+    align-items: center;
+    padding: 20px 15px;
+    border-top: 1px solid #e5e7eb;
+    background-color: white;
+    gap: 15px;
+    border-bottom-left-radius: var(--border-radius);
+    /* Ikut bucu card */
+    border-bottom-right-radius: var(--border-radius);
+}
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    color: var(--text-color);
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Hover Effect untuk Button Aktif */
+.pagination-btn:hover:not(.disabled) {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Style untuk Disabled Button (Button Mati) */
+.pagination-btn.disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+    pointer-events: none;
+    /* Halang klik */
+}
+
+/* Teks "Page 1 of 5" */
+.page-info {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Responsif untuk mobile */
+@media (max-width: 600px) {
+    .pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .page-info {
+        width: 100%;
+        order: -1;
+        /* Naikkan info page ke atas button bila mobile */
+        margin-bottom: 10px;
     }
 }

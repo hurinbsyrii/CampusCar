@@ -454,10 +454,10 @@ $conn->close();
                                                                 Reject
                                                             </button>
                                                         <?php endif; ?>
-                                                        <button class="btn btn-outline" onclick="contactPassenger('<?php echo htmlspecialchars($booking['PassengerPhone']); ?>')">
+                                                        <!-- <button class="btn btn-outline" onclick="contactPassenger('<?php echo htmlspecialchars($booking['PassengerPhone']); ?>')">
                                                             <i class="fa-solid fa-phone"></i>
                                                             Contact
-                                                        </button>
+                                                        </button> -->
                                                     </div>
                                                 </div>
                                             </div>

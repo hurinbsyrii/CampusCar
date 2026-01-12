@@ -19,6 +19,32 @@ if ($conn->connect_error) {
 
 $user_id = $_SESSION['user_id'];
 
+// --- MULA AUTO-CANCEL LOGIC ---
+$currentDateTimeFull = date('Y-m-d H:i:s');
+
+// 1. Update status Ride kepada 'expired' jika masa dah lepas (dan tiada booking confirmed)
+// (Ini backup in case user tak masuk dashboard, tapi masuk page mybookings terus)
+$expire_ride_sql = "UPDATE rides 
+                    SET Status = 'expired' 
+                    WHERE TIMESTAMP(RideDate, DepartureTime) < '$currentDateTimeFull' 
+                    AND Status = 'available'
+                    AND RideID NOT IN (
+                        SELECT RideID FROM booking 
+                        WHERE BookingStatus IN ('Confirmed', 'Paid', 'Completed')
+                    )";
+$conn->query($expire_ride_sql);
+
+// 2. Update status Booking kepada 'Cancelled' jika Ride dah 'expired' tapi booking masih 'Pending'
+$cancel_booking_sql = "UPDATE booking b
+                       JOIN rides r ON b.RideID = r.RideID
+                       SET b.BookingStatus = 'Cancelled',
+                           b.CancellationReason = 'Ride expired without confirmation',
+                           b.IsSeenByPassenger = 0  -- Set 0 supaya naik notification dot
+                       WHERE r.Status = 'expired'
+                       AND b.BookingStatus = 'Pending'";
+$conn->query($cancel_booking_sql);
+// --- TAMAT AUTO-CANCEL LOGIC ---
+
 // Check if user is a driver
 $is_driver = false;
 $driver = null; // Initialize driver variable

@@ -73,84 +73,100 @@ function initializeBookingActions() {
 
 // Cancel booking function
 function cancelBooking(bookingId) {
-    if (!confirm("Are you sure you want to cancel this booking? This action cannot be undone.")) {
-        return;
-    }
+  if (
+    !confirm(
+      "Are you sure you want to cancel this booking? This action cannot be undone."
+    )
+  ) {
+    return;
+  }
 
-    const bookingCard = document.querySelector(`[data-booking-id="${bookingId}"]`);
-    if (!bookingCard) return;
+  const bookingCard = document.querySelector(
+    `[data-booking-id="${bookingId}"]`
+  );
+  if (!bookingCard) return;
 
-    // Check if this is a pending booking (should affect the count)
-    const statusBadge = bookingCard.querySelector(".status-badge");
-    const isPending = statusBadge && statusBadge.textContent.trim() === "Pending";
+  // Check if this is a pending booking (should affect the count)
+  const statusBadge = bookingCard.querySelector(".status-badge");
+  const isPending = statusBadge && statusBadge.textContent.trim() === "Pending";
 
-    // Show loading state
-    bookingCard.classList.add("loading");
-    const cancelBtn = bookingCard.querySelector(".btn-cancel");
-    const originalText = cancelBtn ? cancelBtn.innerHTML : "";
+  // Show loading state
+  bookingCard.classList.add("loading");
+  const cancelBtn = bookingCard.querySelector(".btn-cancel");
+  const originalText = cancelBtn ? cancelBtn.innerHTML : "";
 
-    if (cancelBtn) {
-        cancelBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
-        cancelBtn.disabled = true;
-    }
+  if (cancelBtn) {
+    cancelBtn.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+    cancelBtn.disabled = true;
+  }
 
-    // Make AJAX call to cancel booking
-    const formData = new FormData();
-    formData.append("action", "cancel_booking");
-    formData.append("booking_id", bookingId);
+  // Make AJAX call to cancel booking
+  const formData = new FormData();
+  formData.append("action", "cancel_booking");
+  formData.append("booking_id", bookingId);
 
-    fetch("../database/mybookingsdb.php", {
-        method: "POST",
-        body: formData,
+  fetch("../database/mybookingsdb.php", {
+    method: "POST",
+    body: formData,
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      bookingCard.classList.remove("loading");
+
+      if (data.success) {
+        // Update UI
+        const statusBadge = bookingCard.querySelector(".status-badge");
+        if (statusBadge) {
+          statusBadge.textContent = "CANCELLED";
+          statusBadge.className = "status-badge status-cancelled";
+        }
+
+        if (cancelBtn) {
+          cancelBtn.remove();
+        }
+
+        // Show success notification
+        showNotification(
+          data.message || "Booking cancelled successfully!",
+          "success"
+        );
+
+        // Update tab count only if it was a pending booking
+        if (isPending) {
+          updateTabCount("passenger-bookings", -1);
+        }
+
+        // IMPORTANT: Show message about Today's Rides
+        showNotification(
+          "This booking will no longer appear in Today's Rides.",
+          "info"
+        );
+      } else {
+        // Show error message
+        showNotification(data.message || "Failed to cancel booking", "error");
+
+        // Reset button
+        if (cancelBtn) {
+          cancelBtn.innerHTML = originalText;
+          cancelBtn.disabled = false;
+        }
+      }
     })
-        .then(response => response.json())
-        .then(data => {
-            bookingCard.classList.remove("loading");
+    .catch((error) => {
+      console.error("Error:", error);
+      bookingCard.classList.remove("loading");
+      showNotification(
+        "An error occurred while cancelling the booking",
+        "error"
+      );
 
-            if (data.success) {
-                // Update UI
-                const statusBadge = bookingCard.querySelector(".status-badge");
-                if (statusBadge) {
-                    statusBadge.textContent = "CANCELLED";
-                    statusBadge.className = "status-badge status-cancelled";
-                }
-
-                if (cancelBtn) {
-                    cancelBtn.remove();
-                }
-
-                // Show success notification
-                showNotification(data.message || "Booking cancelled successfully!", "success");
-
-                // Update tab count only if it was a pending booking
-                if (isPending) {
-                    updateTabCount("passenger-bookings", -1);
-                }
-
-                // IMPORTANT: Show message about Today's Rides
-                showNotification("This booking will no longer appear in Today's Rides.", "info");
-            } else {
-                // Show error message
-                showNotification(data.message || "Failed to cancel booking", "error");
-
-                // Reset button
-                if (cancelBtn) {
-                    cancelBtn.innerHTML = originalText;
-                    cancelBtn.disabled = false;
-                }
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-            bookingCard.classList.remove("loading");
-            showNotification("An error occurred while cancelling the booking", "error");
-
-            // Reset button
-            if (cancelBtn) {
-                cancelBtn.innerHTML = originalText;
-                cancelBtn.disabled = false;
-            }
-        });
+      // Reset button
+      if (cancelBtn) {
+        cancelBtn.innerHTML = originalText;
+        cancelBtn.disabled = false;
+      }
+    });
 }
 
 // Update booking status (for drivers)

@@ -21,12 +21,12 @@ setcookie('theme', 'light', time() + (365 * 24 * 60 * 60), "/");
             <i class="fa-solid fa-car-side"></i>
             <span>CampusCar</span>
         </div>
-        <nav>
+        <!-- <nav>
             <a href="#" class="active">Home</a>
             <a href="#">Find Ride</a>
             <a href="#">About</a>
             <a href="#">Contact</a>
-        </nav>
+        </nav> -->
         <div class="nav-buttons">
             <!-- theme toggle removed -->
             <button class="login-btn" onclick="window.location.href='../php/login.php'">Login</button>
@@ -35,7 +35,7 @@ setcookie('theme', 'light', time() + (365 * 24 * 60 * 60), "/");
     </header>
 
     <!-- Mobile Bottom Navigation -->
-    <nav class="bottom-nav">
+    <!-- <nav class="bottom-nav">
         <a href="#" class="nav-item active">
             <i class="fas fa-home"></i>
             <span>Home</span>
@@ -52,7 +52,7 @@ setcookie('theme', 'light', time() + (365 * 24 * 60 * 60), "/");
             <i class="fas fa-user"></i>
             <span>Account</span>
         </a>
-    </nav>
+    </nav> -->
 
     <section class="hero">
         <div class="hero-content">
@@ -212,19 +212,19 @@ setcookie('theme', 'light', time() + (365 * 24 * 60 * 60), "/");
                     <i class="fa-solid fa-car-side"></i>
                     <span>CampusCar</span>
                 </div>
-                <div class="footer-links">
+                <!-- <div class="footer-links">
                     <a href="#">Home</a>
                     <a href="#">Find Ride</a>
                     <a href="#">About</a>
                     <a href="#">Contact</a>
                     <a href="#">Privacy Policy</a>
                     <a href="#">Terms of Service</a>
-                </div>
-                <div class="social-links">
+                </div> -->
+                <!-- <div class="social-links">
                     <a href="#"><i class="fab fa-facebook"></i></a>
                     <a href="#"><i class="fab fa-twitter"></i></a>
                     <a href="#"><i class="fab fa-instagram"></i></a>
-                </div>
+                </div> -->
             </div>
             <p class="copyright">© 2025 CampusCar. All rights reserved.</p>
         </div>

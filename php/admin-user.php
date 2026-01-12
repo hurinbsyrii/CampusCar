@@ -164,26 +164,59 @@ $search_term = isset($_GET['search']) ? $conn->real_escape_string($_GET['search'
 $role_filter = isset($_GET['role']) ? $conn->real_escape_string($_GET['role']) : '';
 $faculty_filter = isset($_GET['faculty']) ? $conn->real_escape_string($_GET['faculty']) : '';
 
-// Build query
-$sql = "SELECT * FROM user WHERE 1=1";
+// ... (Kod search filter anda di atas kekal sama) ...
+
+// --- PAGINATION LOGIC MULA (DIKEMASKINI) ---
+
+// 1. Set berapa data per page
+$results_per_page = 6; //tukar nilai ini untuk ubah bilangan data per page
+
+// 2. Dapatkan page semasa dari URL
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+
+// 3. Kira OFFSET
+$page_first_result = ($page - 1) * $results_per_page;
+
+// 4. Bina Query Filter (Untuk digunakan dalam Count & Select)
+$where_clause = "WHERE 1=1";
 
 if (!empty($search_term)) {
-    $sql .= " AND (FullName LIKE '%$search_term%' 
-                  OR MatricNo LIKE '%$search_term%' 
-                  OR Email LIKE '%$search_term%'
-                  OR Username LIKE '%$search_term%')";
+    $where_clause .= " AND (FullName LIKE '%$search_term%' 
+                       OR MatricNo LIKE '%$search_term%' 
+                       OR Email LIKE '%$search_term%'
+                       OR Username LIKE '%$search_term%')";
 }
 
 if (!empty($role_filter)) {
-    $sql .= " AND Role = '$role_filter'";
+    $where_clause .= " AND Role = '$role_filter'";
 }
 
 if (!empty($faculty_filter)) {
-    $sql .= " AND Faculty = '$faculty_filter'";
+    $where_clause .= " AND Faculty = '$faculty_filter'";
 }
 
-$sql .= " ORDER BY UserID DESC";
+// 5. Kira TOTAL Data (Guna COUNT(*) lebih tepat & laju)
+$count_sql = "SELECT COUNT(*) as total FROM user " . $where_clause;
+$count_result = $conn->query($count_sql);
+$count_row = $count_result->fetch_assoc();
+$number_of_results = $count_row['total'];
+
+// Kira jumlah page
+$number_of_pages = ceil($number_of_results / $results_per_page);
+
+// Pastikan page tak lebih dari jumlah page yang ada
+if ($page > $number_of_pages && $number_of_pages > 0) {
+    $page = $number_of_pages;
+    // Kira balik offset jika page berubah
+    $page_first_result = ($page - 1) * $results_per_page;
+}
+
+// 6. Jalankan Query Sebenar untuk Paparan Data
+$sql = "SELECT * FROM user " . $where_clause . " ORDER BY UserID DESC LIMIT " . $page_first_result . ',' . $results_per_page;
 $result = $conn->query($sql);
+
+// --- PAGINATION LOGIC TAMAT ---
 
 // Get statistics
 $total_users = $conn->query("SELECT COUNT(*) as count FROM user")->fetch_assoc()['count'];
@@ -516,15 +549,42 @@ while ($row = $faculties_result->fetch_assoc()) {
                             </tbody>
                         </table>
 
-                        <!-- Pagination -->
                         <div class="pagination">
-                            <button class="pagination-btn disabled">
-                                <i class="fa-solid fa-chevron-left"></i> Previous
-                            </button>
-                            <span class="page-info">Page 1 of 1</span>
-                            <button class="pagination-btn disabled">
-                                Next <i class="fa-solid fa-chevron-right"></i>
-                            </button>
+                            <?php
+                            // Check supaya function tak clash
+                            if (!function_exists('build_url')) {
+                                function build_url($page)
+                                {
+                                    $params = $_GET;
+                                    $params['page'] = $page;
+                                    return '?' . http_build_query($params);
+                                }
+                            }
+                            ?>
+
+                            <?php if ($page > 1): ?>
+                                <a href="<?php echo build_url($page - 1); ?>" class="pagination-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </button>
+                            <?php endif; ?>
+
+                            <span class="page-info">
+                                Page <?php echo $page; ?> of <?php echo ($number_of_pages > 0) ? $number_of_pages : 1; ?>
+                            </span>
+
+                            <?php if ($page < $number_of_pages): ?>
+                                <a href="<?php echo build_url($page + 1); ?>" class="pagination-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </section>

@@ -34,7 +34,7 @@ $currentDateTimeFull = date('Y-m-d H:i:s');
 $expire_sql = "UPDATE rides 
                SET Status = 'expired' 
                WHERE TIMESTAMP(RideDate, DepartureTime) < '$currentDateTimeFull' 
-               AND Status = 'available' 
+               AND Status = 'available'
                AND RideID NOT IN (
                    SELECT RideID FROM booking 
                    WHERE BookingStatus IN ('Confirmed', 'Paid', 'Completed')
@@ -96,7 +96,7 @@ $today_rides_sql = "SELECT r.*, u.FullName as DriverName, d.CarModel, d.CarPlate
                     JOIN user u ON d.UserID = u.UserID
                     LEFT JOIN booking b ON r.RideID = b.RideID AND b.UserID = ? 
                         AND b.BookingStatus != 'Cancelled'  -- EXCLUDE CANCELLED BOOKINGS
-                    WHERE r.RideDate = ?
+                    WHERE r.RideDate = ? AND r.Status != 'Cancelled'
                     AND (
                         r.DriverID = ? 
                         OR (b.UserID = ? AND b.BookingStatus != 'Cancelled')

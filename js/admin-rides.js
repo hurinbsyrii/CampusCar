@@ -471,7 +471,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "Ride Details",
       "Driver & Vehicle",
       "Booking Stats",
-      "Date & Time",
+      // "Date & Time",
       "Status",
       "Actions",
     ];
@@ -489,7 +489,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "Ride Details",
       "Driver & Vehicle",
       "Booking Stats",
-      "Date & Time",
+      // "Date & Time",
       "Status",
       "Actions",
     ];

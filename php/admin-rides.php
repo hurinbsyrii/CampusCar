@@ -536,7 +536,7 @@ function exportRidesToCSV($conn)
                                     <th>Ride Details</th>
                                     <th>Driver & Vehicle</th>
                                     <th>Booking Stats</th>
-                                    <th>Date & Time</th>
+                                    <!-- <th>Date & Time</th> -->
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -576,13 +576,16 @@ function exportRidesToCSV($conn)
                                                         </h4>
                                                     </div>
                                                     <div class="ride-details">
+                                                        <p class="ride-datetime" style="color: #2c3e50; font-weight: 600; margin-bottom: 5px;">
+                                                            <i class="fa-solid fa-calendar-check"></i>
+                                                            <?php echo date('d M Y, h:i A', strtotime($ride['RideDate'] . ' ' . $ride['DepartureTime'])); ?>
+                                                        </p>
                                                         <p>
                                                             <i class="fa-solid fa-money-bill-wave"></i>
                                                             RM <?php echo number_format($ride['PricePerSeat'], 2); ?> per seat
                                                         </p>
-                                                        <p>
-                                                            <i class="fa-solid fa-chair"></i>
-                                                            <?php echo $ride['AvailableSeats']; ?> seats available
+                                                        <i class="fa-solid fa-chair"></i>
+                                                        <?php echo $ride['AvailableSeats']; ?> seats available
                                                         </p>
                                                         <?php if ($ride['FemaleOnly']): ?>
                                                             <p class="female-only">
@@ -648,7 +651,7 @@ function exportRidesToCSV($conn)
                                                     </p>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <!-- <td>
                                                 <div class="datetime-info">
                                                     <p class="date">
                                                         <i class="fa-solid fa-calendar"></i>
@@ -663,7 +666,7 @@ function exportRidesToCSV($conn)
                                                         <?php echo $is_upcoming ? 'Upcoming' : ($is_past ? 'Past' : 'Now'); ?>
                                                     </p>
                                                 </div>
-                                            </td>
+                                            </td> -->
                                             <td>
                                                 <span class="status-badge <?php echo $status_class; ?>">
                                                     <?php echo ucfirst(str_replace('_', ' ', $ride['Status'])); ?>

@@ -23,26 +23,6 @@ document.addEventListener("DOMContentLoaded", function () {
     rejectionReasonTextarea.removeAttribute("required");
   }
 
-  // Filter functionality
-  // filterBtns.forEach((btn) => {
-  //   btn.addEventListener("click", function () {
-  //     console.log("Filter clicked:", this.dataset.filter);
-  //     const filter = this.dataset.filter;
-
-  //     filterBtns.forEach((b) => b.classList.remove("active"));
-  //     this.classList.add("active");
-
-  //     const rows = document.querySelectorAll(".driver-row");
-  //     rows.forEach((row) => {
-  //       if (filter === "all" || row.dataset.status === filter) {
-  //         row.style.display = "";
-  //       } else {
-  //         row.style.display = "none";
-  //       }
-  //     });
-  //   });
-  // });
-
   // Action buttons using event delegation
   document.addEventListener("click", function (e) {
     if (e.target.closest(".approve-btn")) {

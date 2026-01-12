@@ -419,24 +419,24 @@ $conn->close();
                                                             <a class="btn btn-payment" href="payment.php?booking_id=<?php echo $ride['BookingID']; ?>">
                                                                 <i class="fa-solid fa-credit-card"></i> Make Payment
                                                             </a>
-                                                            <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                            <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                                 <i class="fa-solid fa-phone"></i> Contact Driver
-                                                            </button>
+                                                            </button> -->
                                                         <?php elseif ($ride['Status'] == 'in_progress'): ?>
                                                             <span class="status-in-progress-text">Ride in Progress</span>
-                                                            <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                            <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                                 <i class="fa-solid fa-phone"></i> Contact Driver
-                                                            </button>
+                                                            </button> -->
                                                         <?php elseif ($ride['Status'] == 'completed' && $ride['BookingStatus'] == 'Paid'): ?>
                                                             <span class="status-paid-text">Payment Completed</span>
-                                                            <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                            <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                                 <i class="fa-solid fa-phone"></i> Contact Driver
-                                                            </button>
+                                                            </button> -->
                                                         <?php else: ?>
                                                             <span class="status-available-text">Ride Available</span>
-                                                            <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                            <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                                 <i class="fa-solid fa-phone"></i> Contact Driver
-                                                            </button>
+                                                            </button> -->
                                                         <?php endif; ?>
 
                                                     <?php elseif ($ride['BookingStatus'] == 'Pending'): ?>
@@ -457,9 +457,9 @@ $conn->close();
                                                         <a class="btn btn-payment" href="payment.php?booking_id=<?php echo $ride['BookingID']; ?>">
                                                             <i class="fa-solid fa-credit-card"></i> Make Payment
                                                         </a>
-                                                        <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                        <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                             <i class="fa-solid fa-phone"></i> Contact Driver
-                                                        </button>
+                                                        </button> -->
 
                                                     <?php elseif ($ride['BookingStatus'] == 'Paid'): ?>
                                                         <span class="status-paid-text">Ride Completed & Paid</span>
@@ -479,9 +479,9 @@ $conn->close();
                                                         </button>
                                                     <?php elseif ($ride['Status'] == 'in_progress'): ?>
                                                         <span class="status-in-progress-text">Ride in Progress</span>
-                                                        <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
+                                                        <!-- <button class="btn btn-outline" onclick="contactDriver('<?php echo htmlspecialchars($ride['DriverName']); ?>')">
                                                             <i class="fa-solid fa-phone"></i> Contact Driver
-                                                        </button>
+                                                        </button> -->
                                                     <?php else: ?>
                                                         <span class="status-completed-text">Ride Completed</span>
                                                     <?php endif; ?>

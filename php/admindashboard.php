@@ -346,7 +346,7 @@ while ($row = $booking_status_result->fetch_assoc()) {
                         <div class="recent-card">
                             <div class="recent-header">
                                 <h3><i class="fa-solid fa-user-plus"></i> Recent Users</h3>
-                                <a href="admin-users.php" class="view-all">View All →</a>
+                                <!-- <a href="admin-users.php" class="view-all">View All →</a> -->
                             </div>
                             <div class="recent-list">
                                 <?php if ($recent_users->num_rows > 0): ?>
@@ -372,7 +372,7 @@ while ($row = $booking_status_result->fetch_assoc()) {
                         <div class="recent-card">
                             <div class="recent-header">
                                 <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Bookings</h3>
-                                <a href="admin-bookings.php" class="view-all">View All →</a>
+                                <!-- <a href="admin-bookings.php" class="view-all">View All →</a> -->
                             </div>
                             <div class="recent-list">
                                 <?php if ($recent_bookings->num_rows > 0): ?>

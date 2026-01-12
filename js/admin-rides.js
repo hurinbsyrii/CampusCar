@@ -48,7 +48,20 @@ document.addEventListener("DOMContentLoaded", function () {
         icon: "fa-times",
       },
     ],
-    completed: [],
+    completed: [
+      {
+        value: "in_progress",
+        label: "In Progress",
+        description: "Re-open ride (Undo completion)",
+        icon: "fa-undo",
+      },
+      {
+        value: "cancelled",
+        label: "Cancelled",
+        description: "Invalidate this completed ride",
+        icon: "fa-times",
+      },
+    ],
     cancelled: [],
     expired: [],
   };

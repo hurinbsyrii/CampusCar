@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
         $valid_transitions = [
             'available' => ['in_progress', 'cancelled'],
             'in_progress' => ['completed', 'cancelled'],
-            'completed' => [],
+            'completed' => ['in_progress', 'cancelled'],
             'cancelled' => [],
             'expired' => []
         ];
@@ -715,7 +715,7 @@ function exportRidesToCSV($conn)
                                                         <i class="fa-solid fa-eye"></i> View
                                                     </button> -->
 
-                                                    <?php if ($ride['Status'] === 'available' || $ride['Status'] === 'in_progress'): ?>
+                                                    <?php if ($ride['Status'] === 'available' || $ride['Status'] === 'in_progress' || $ride['Status'] === 'completed'): ?>
                                                         <button class="action-btn update-btn"
                                                             data-id="<?php echo $ride['RideID']; ?>"
                                                             data-current-status="<?php echo $ride['Status']; ?>">

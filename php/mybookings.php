@@ -42,7 +42,21 @@ $cancel_booking_sql = "UPDATE booking b
                            b.IsSeenByPassenger = 0  -- Set 0 supaya naik notification dot
                        WHERE r.Status = 'expired'
                        AND b.BookingStatus = 'Pending'";
+// ... kod sedia ada ...
 $conn->query($cancel_booking_sql);
+
+// 3. (TAMBAHAN BARU) Update status Booking kepada 'Cancelled' jika Ride itu sendiri 'cancelled'
+// Ini menangani kes di mana Driver membatalkan trip.
+$sync_cancel_sql = "UPDATE booking b
+                    JOIN rides r ON b.RideID = r.RideID
+                    SET b.BookingStatus = 'Cancelled',
+                        b.CancellationReason = 'Ride cancelled by driver',
+                        b.IsSeenByPassenger = 0  -- Trigger notification dot
+                    WHERE r.Status = 'cancelled'
+                    AND b.BookingStatus != 'Cancelled'"; // Update jika belum cancelled
+$conn->query($sync_cancel_sql);
+
+// --- TAMAT AUTO-CANCEL LOGIC ---
 // --- TAMAT AUTO-CANCEL LOGIC ---
 
 // Check if user is a driver

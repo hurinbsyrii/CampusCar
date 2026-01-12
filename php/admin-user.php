@@ -500,11 +500,18 @@ while ($row = $faculties_result->fetch_assoc()) {
                                                 // Check if user is an active driver
                                                 $driver_check = $conn->query("SELECT Status FROM driver WHERE UserID = {$user['UserID']}");
                                                 if ($driver_check->num_rows > 0) {
+                                                    // Jika dia driver (tak kira admin atau user), tunjuk status driver
                                                     $driver_status = $driver_check->fetch_assoc()['Status'];
                                                     echo '<span class="status-badge status-' . strtolower($driver_status) . '">';
                                                     echo '<i class="fa-solid fa-car"></i> ' . ucfirst($driver_status);
                                                     echo '</span>';
+                                                } elseif ($user['Role'] === 'admin') {
+                                                    // Jika ADMIN dan bukan driver, tunjuk "Administrator"
+                                                    echo '<span class="status-badge status-admin">';
+                                                    echo '<i class="fa-solid fa-shield-halved"></i> Administrator';
+                                                    echo '</span>';
                                                 } else {
+                                                    // Jika USER biasa dan bukan driver
                                                     echo '<span class="status-badge status-user">Regular User</span>';
                                                 }
                                                 ?>

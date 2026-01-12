@@ -168,6 +168,14 @@ $total_rides_sql = "SELECT COUNT(*) as total FROM rides
 $total_result = $conn->query($total_rides_sql);
 $total_rides = $total_result->fetch_assoc()['total'];
 
+// ... (selepas $total_rides query) ...
+
+// Get active drivers count
+$driver_count_sql = "SELECT COUNT(*) as count FROM driver WHERE Status = 'approved'";
+$driver_count_result = $conn->query($driver_count_sql);
+$active_drivers = $driver_count_result->fetch_assoc()['count'];
+
+// ... (sambung kod asal) ...
 $monday = date('Y-m-d', strtotime('monday this week'));
 $sunday = date('Y-m-d', strtotime('sunday this week'));
 $week_range = date('M j', strtotime($monday)) . ' - ' . date('M j, Y', strtotime($sunday));
@@ -704,7 +712,7 @@ $stmt->close();
                             </div>
                             <div class="stat-info">
                                 <h4>Active Drivers</h4>
-                                <span class="stat-number">50+</span>
+                                <span class="stat-number"><?php echo $active_drivers; ?></span>
                             </div>
                         </div>
                     </div>

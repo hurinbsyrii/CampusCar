@@ -9,238 +9,181 @@ document.addEventListener("DOMContentLoaded", function () {
   const approvalSection = document.getElementById("approvalSection");
   const actionForm = document.getElementById("actionForm");
   const rejectionReasonTextarea = document.getElementById("rejection_reason");
-  const refreshBtn = document.getElementById("refreshBtn");
-  const filterBtns = document.querySelectorAll(".filter-btn");
+  const modalDriverId = document.getElementById("modalDriverId");
+  const modalAction = document.getElementById("modalAction");
   const closeModalBtns = document.querySelectorAll(
     ".close-modal, .close-modal-btn"
   );
-  const closeNotificationBtns = document.querySelectorAll(
-    ".close-notification"
-  );
 
-  // FIX: Remove required attribute from rejection_reason initially
-  if (rejectionReasonTextarea) {
+  // Initial Setup
+  if (rejectionReasonTextarea)
     rejectionReasonTextarea.removeAttribute("required");
-  }
 
-  // Action buttons using event delegation
+  // Event Delegation for Buttons
   document.addEventListener("click", function (e) {
+    // Approve
     if (e.target.closest(".approve-btn")) {
-      const btn = e.target.closest(".approve-btn");
-      const driverId = btn.dataset.id;
-      console.log("Approve clicked for driver:", driverId);
+      const driverId = e.target.closest(".approve-btn").dataset.id;
       showModal("approve", driverId);
     }
-
+    // Reject
     if (e.target.closest(".reject-btn")) {
-      const btn = e.target.closest(".reject-btn");
-      const driverId = btn.dataset.id;
-      console.log("Reject clicked for driver:", driverId);
+      const driverId = e.target.closest(".reject-btn").dataset.id;
       showModal("reject", driverId);
     }
-
+    // Revoke (Updated Logic)
     if (e.target.closest(".revoke-btn")) {
       const btn = e.target.closest(".revoke-btn");
       const driverId = btn.dataset.id;
-      console.log("Revoke clicked for driver:", driverId);
-      showModal("revoke", driverId);
-    }
 
-    if (e.target.closest(".view-btn")) {
-      const btn = e.target.closest(".view-btn");
-      const driverId = btn.dataset.id;
-      console.log("View clicked for driver:", driverId);
-      // Implement view functionality here
+      // Disable button & show loading text sementara check database
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
+
+      checkDriverActivity(driverId, btn, originalText);
     }
   });
 
-  // Show modal function
+  // Function: Check Activity via AJAX
+  function checkDriverActivity(driverId, btnElement, originalText) {
+    const formData = new FormData();
+    formData.append("action", "check_activity");
+    formData.append("driver_id", driverId);
+
+    fetch("admin-driver.php", {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        // Reset button state
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalText;
+
+        // Show Revoke Modal with dynamic data
+        showRevokeModal(driverId, data.active_rides, data.active_bookings);
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalText;
+        alert("Failed to check driver activity. Please try again.");
+      });
+  }
+
+  // Function: Show Revoke Modal Specific
+  function showRevokeModal(driverId, activeRides, activeBookings) {
+    modalDriverId.value = driverId;
+    modalAction.value = "revoke";
+    actionForm.reset();
+
+    rejectionSection.style.display = "none";
+    approvalSection.style.display = "block";
+    rejectionReasonTextarea.removeAttribute("required");
+
+    modalTitle.textContent = "Revoke Driver Access";
+    modalSubmitBtn.textContent = "Confirm Revoke";
+    modalSubmitBtn.className = "btn-primary";
+    // Tukar warna button jadi merah sebab action bahaya
+    modalSubmitBtn.style.backgroundColor = "#dc3545";
+    modalSubmitBtn.style.borderColor = "#dc3545";
+
+    let messageHtml = "";
+
+    if (activeRides > 0) {
+      // Warning Message kalau ada active ride/booking
+      messageHtml = `
+            <div class="confirmation-message">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #dc3545; font-size: 3rem; margin-bottom: 15px;"></i>
+                <h4 style="color: #dc3545; margin-bottom: 10px;">Warning: Active Commitments!</h4>
+                <p style="margin-bottom: 15px;">
+                    This driver currently has <strong>${activeRides} active ride(s)</strong> 
+                    and <strong>${activeBookings} active booking(s)</strong>.
+                </p>
+                <div style="background: #fff3cd; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba; color: #856404; font-size: 0.9rem; text-align: left;">
+                    <strong>If you proceed:</strong>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li>All active rides will be <strong>cancelled</strong>.</li>
+                        <li>All bookings will be cancelled.</li>
+                        <li>Affected passengers will receive a <strong>notification</strong>.</li>
+                        <li>The driver will be removed (become regular user).</li>
+                    </ul>
+                </div>
+                <p style="margin-top: 15px;">Are you sure you want to proceed?</p>
+            </div>
+        `;
+    } else {
+      // Safe Message kalau tak ada ride
+      messageHtml = `
+            <div class="confirmation-message">
+                <i class="fa-solid fa-user-slash" style="color: #ffc107; font-size: 3rem; margin-bottom: 15px;"></i>
+                <p>Are you sure you want to revoke this driver's access?</p>
+                <p style="font-size: 0.9rem; color: #666;">They will be downgraded to a regular passenger and won't be able to offer rides anymore.</p>
+            </div>
+        `;
+    }
+
+    approvalSection.innerHTML = messageHtml;
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+
+  // Function: Show Standard Modal (Approve/Reject)
   function showModal(action, driverId) {
-    console.log("Show modal called:", action, driverId);
-
-    const modalDriverId = document.getElementById("modalDriverId");
-    const modalAction = document.getElementById("modalAction");
-
     modalDriverId.value = driverId;
     modalAction.value = action;
-
-    // Reset form
     actionForm.reset();
+
     rejectionSection.style.display = "none";
     approvalSection.style.display = "none";
 
-    // FIX: Handle required attribute based on action
-    if (rejectionReasonTextarea) {
-      if (action === "reject") {
+    // Reset button style
+    modalSubmitBtn.style.backgroundColor = "";
+    modalSubmitBtn.style.borderColor = "";
+
+    if (rejectionReasonTextarea)
+      rejectionReasonTextarea.removeAttribute("required");
+
+    if (action === "approve") {
+      modalTitle.textContent = "Approve Driver";
+      modalSubmitBtn.textContent = "Approve";
+      modalSubmitBtn.className = "btn-primary";
+      approvalSection.style.display = "block";
+      approvalSection.innerHTML = `
+        <div class="confirmation-message">
+            <i class="fa-solid fa-check-circle" style="color: #28a745;"></i>
+            <p>Approve this driver? They will be able to offer rides immediately.</p>
+        </div>`;
+    } else if (action === "reject") {
+      modalTitle.textContent = "Reject Application";
+      modalSubmitBtn.textContent = "Reject";
+      modalSubmitBtn.className = "btn-primary";
+      // Button merah untuk reject
+      modalSubmitBtn.style.backgroundColor = "#dc3545";
+
+      rejectionSection.style.display = "block";
+      if (rejectionReasonTextarea)
         rejectionReasonTextarea.setAttribute("required", "required");
-        rejectionSection.style.display = "block";
-      } else {
-        rejectionReasonTextarea.removeAttribute("required");
-      }
-    }
-
-    switch (action) {
-      case "approve":
-        modalTitle.textContent = "Approve Driver Registration";
-        modalSubmitBtn.textContent = "Approve Driver";
-        modalSubmitBtn.className = "btn-primary";
-        approvalSection.style.display = "block";
-        break;
-
-      case "reject":
-        modalTitle.textContent = "Reject Driver Registration";
-        modalSubmitBtn.textContent = "Reject Application";
-        modalSubmitBtn.className = "btn-primary";
-        break;
-
-      case "revoke":
-        modalTitle.textContent = "Revoke Driver Status";
-        modalSubmitBtn.textContent = "Revoke Access";
-        modalSubmitBtn.className = "btn-primary";
-        approvalSection.innerHTML = `
-                    <div class="confirmation-message">
-                        <i class="fa-solid fa-exclamation-triangle"></i>
-                        <p>Are you sure you want to revoke this driver's access? They will no longer be able to offer rides.</p>
-                    </div>
-                `;
-        approvalSection.style.display = "block";
-        break;
     }
 
     modal.classList.add("show");
     document.body.style.overflow = "hidden";
-    console.log("Modal shown");
   }
 
-  // Close modal
+  // Close Modal Logic
   closeModalBtns.forEach((btn) => {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       modal.classList.remove("show");
       document.body.style.overflow = "";
-
-      // FIX: Reset required attribute when closing modal
-      if (rejectionReasonTextarea) {
-        rejectionReasonTextarea.removeAttribute("required");
-      }
     });
   });
 
-  // Close on outside click
-  modal.addEventListener("click", function (e) {
-    if (e.target === modal) {
+  window.onclick = function (event) {
+    if (event.target == modal) {
       modal.classList.remove("show");
       document.body.style.overflow = "";
-
-      // FIX: Reset required attribute when closing modal
-      if (rejectionReasonTextarea) {
-        rejectionReasonTextarea.removeAttribute("required");
-      }
     }
-  });
-
-  // Form submission - FIXED: Better validation
-  actionForm.addEventListener("submit", function (e) {
-    console.log("Form submission started");
-
-    const action = document.getElementById("modalAction").value;
-
-    // Custom validation for reject action
-    if (action === "reject") {
-      const reason = document.getElementById("rejection_reason").value.trim();
-      if (!reason) {
-        e.preventDefault();
-        alert("Please provide a rejection reason.");
-        document.getElementById("rejection_reason").focus();
-        return false;
-      }
-
-      if (reason.length < 10) {
-        e.preventDefault();
-        alert(
-          "Please provide a more detailed rejection reason (at least 10 characters)."
-        );
-        document.getElementById("rejection_reason").focus();
-        return false;
-      }
-    }
-
-    // Show loading state
-    modalSubmitBtn.disabled = true;
-    modalSubmitBtn.innerHTML =
-      '<i class="fa-solid fa-spinner loading"></i> Processing...';
-    console.log("Form submitting with action:", action);
-
-    return true;
-  });
-
-  // Close notifications
-  closeNotificationBtns.forEach((btn) => {
-    btn.addEventListener("click", function () {
-      const notification = this.closest(".notification");
-      if (notification) {
-        notification.style.animation = "slideOut 0.3s ease";
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.remove();
-          }
-        }, 300);
-      }
-    });
-  });
-
-  // Auto-close notifications
-  const notifications = document.querySelectorAll(
-    ".notification:not(.persistent)"
-  );
-  notifications.forEach((notification) => {
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.style.animation = "slideOut 0.3s ease";
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.remove();
-          }
-        }, 300);
-      }
-    }, 5000);
-  });
-
-  // Refresh button
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", function () {
-      this.disabled = true;
-      this.innerHTML =
-        '<i class="fa-solid fa-spinner loading"></i> Refreshing...';
-
-      setTimeout(() => {
-        location.reload();
-      }, 1000);
-    });
-  }
-
-  // Keyboard shortcuts
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && modal.classList.contains("show")) {
-      modal.classList.remove("show");
-      document.body.style.overflow = "";
-
-      // Reset required attribute
-      if (rejectionReasonTextarea) {
-        rejectionReasonTextarea.removeAttribute("required");
-      }
-    }
-
-    if (e.ctrlKey && e.key === "f") {
-      e.preventDefault();
-      filterBtns[0]?.focus();
-    }
-
-    if (e.ctrlKey && e.key === "r") {
-      e.preventDefault();
-      refreshBtn?.click();
-    }
-  });
-
-  console.log("Driver management page initialized");
+  };
 });

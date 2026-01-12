@@ -19,75 +19,155 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle actions (approve/reject)
+// Handle actions (approve/reject/revoke/check_activity)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // --- 1. AJAX: Check Active Activity (Dipanggil oleh JS sebelum tunjuk modal) ---
+    if (isset($_POST['action']) && $_POST['action'] === 'check_activity' && isset($_POST['driver_id'])) {
+        $driver_id = intval($_POST['driver_id']);
+
+        // Kira Active Rides (Available/In Progress pada masa hadapan/hari ini)
+        $ride_sql = "SELECT COUNT(*) as count FROM rides 
+                     WHERE DriverID = $driver_id 
+                     AND Status IN ('available', 'in_progress')
+                     AND (RideDate > CURDATE() OR (RideDate = CURDATE() AND DepartureTime > CURTIME()))";
+
+        // Kira Active Bookings pada ride tersebut
+        $booking_sql = "SELECT COUNT(*) as count FROM booking b
+                        JOIN rides r ON b.RideID = r.RideID
+                        WHERE r.DriverID = $driver_id 
+                        AND r.Status IN ('available', 'in_progress')
+                        AND b.BookingStatus IN ('Pending', 'Confirmed', 'Paid')";
+
+        $active_rides = $conn->query($ride_sql)->fetch_assoc()['count'];
+        $active_bookings = $conn->query($booking_sql)->fetch_assoc()['count'];
+
+        // Return JSON response
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'success',
+            'active_rides' => $active_rides,
+            'active_bookings' => $active_bookings
+        ]);
+        exit(); // PENTING: Stop execution di sini untuk request AJAX
+    }
+
+    // --- 2. Handle Form Submit (Approve/Reject/Revoke) ---
     if (isset($_POST['action']) && isset($_POST['driver_id'])) {
         $driver_id = intval($_POST['driver_id']);
         $action = $_POST['action'];
-
-        // Initialize result
         $result = false;
+        $message = "";
+        $type = "info";
 
         if ($action === 'approve') {
-            // Prepare and execute update for approve (only DriverID placeholder)
+            // Logik Approve
             $stmt = $conn->prepare("UPDATE driver SET Status = 'approved', ApprovedDate = NOW() WHERE DriverID = ?");
             $stmt->bind_param("i", $driver_id);
             $result = $stmt->execute();
             $stmt->close();
-
             $message = "Driver approved successfully!";
             $type = "success";
 
-            // Send notification to driver
+            // Notify Driver
             $driver_info = $conn->query("SELECT UserID FROM driver WHERE DriverID = $driver_id")->fetch_assoc();
             if ($driver_info) {
-                $notification_sql = "INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt, RelatedID, RelatedType) 
-                                     VALUES ({$driver_info['UserID']}, 'Driver Registration Approved', 
-                                     'Your driver registration has been approved. You can now offer rides.', 
-                                     'success', NOW(), $driver_id, 'driver_approval')";
-                $conn->query($notification_sql);
+                $conn->query("INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt, RelatedID, RelatedType) VALUES ({$driver_info['UserID']}, 'Driver Registration Approved', 'Your driver registration has been approved. You can now offer rides.', 'success', NOW(), $driver_id, 'driver_approval')");
             }
         } elseif ($action === 'reject' && isset($_POST['rejection_reason'])) {
+            // Logik Reject
             $rejection_reason = $conn->real_escape_string($_POST['rejection_reason']);
-            $sql = "UPDATE driver SET Status = 'rejected', RejectionReason = ? WHERE DriverID = ?";
-            $message = "Driver registration rejected.";
-            $type = "warning";
-
-            // Prepare statement for rejection (two placeholders)
-            $stmt = $conn->prepare($sql);
+            $stmt = $conn->prepare("UPDATE driver SET Status = 'rejected', RejectionReason = ? WHERE DriverID = ?");
             $stmt->bind_param("si", $rejection_reason, $driver_id);
             $result = $stmt->execute();
             $stmt->close();
+            $message = "Driver registration rejected.";
+            $type = "warning";
 
-            // Send notification to driver
+            // Notify Driver
             $driver_info = $conn->query("SELECT UserID FROM driver WHERE DriverID = $driver_id")->fetch_assoc();
             if ($driver_info) {
-                $notification_sql = "INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt, RelatedID, RelatedType) 
-                                     VALUES ({$driver_info['UserID']}, 'Driver Registration Rejected', 
-                                     'Your driver registration was rejected. Reason: $rejection_reason', 
-                                     'warning', NOW(), $driver_id, 'driver_rejection')";
-                $conn->query($notification_sql);
+                $conn->query("INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt, RelatedID, RelatedType) VALUES ({$driver_info['UserID']}, 'Driver Registration Rejected', 'Your driver registration was rejected. Reason: $rejection_reason', 'warning', NOW(), $driver_id, 'driver_rejection')");
             }
+        } elseif ($action === 'revoke') {
+            // --- LOGIK REVOKE (FIX FOREIGN KEY + NOTIFY ACTIVE ONLY) ---
+            $conn->begin_transaction();
+            try {
+                // 1. Dapatkan SEMUA RideID milik driver ini (Aktif & Sejarah)
+                // Kita perlu dapatkan ID semua ride dulu sebelum padam, untuk elak error Foreign Key
+                $all_rides_query = "SELECT RideID, FromLocation, ToLocation, RideDate, Status FROM rides WHERE DriverID = $driver_id";
+                $all_rides_res = $conn->query($all_rides_query);
 
-            header("Location: admin-driver.php?message=" . urlencode($message) . "&type=$type");
-            exit();
-        } else {
-            // Generic status update (two placeholders)
-            $sql = "UPDATE driver SET Status = ? WHERE DriverID = ?";
-            $message = "Driver status updated.";
-            $type = "info";
+                $ride_ids = [];
+                while ($ride = $all_rides_res->fetch_assoc()) {
+                    $ride_ids[] = $ride['RideID'];
 
-            $stmt = $conn->prepare($sql);
-            $status = $action;
-            $stmt->bind_param("si", $status, $driver_id);
-            $result = $stmt->execute();
-            $stmt->close();
+                    // 2. TAPI... Kita letak syarat ini untuk NOTIFIKASI SAHAJA
+                    // Hanya jika status 'available'/'in_progress' DAN tarikh belum lepas (ACTIVE RIDE)
+                    if (in_array($ride['Status'], ['available', 'in_progress']) && strtotime($ride['RideDate']) >= strtotime(date('Y-m-d'))) {
+
+                        $r_id = $ride['RideID'];
+                        // Cari passenger yang dah booking ride aktif ini
+                        $bookings_query = "SELECT UserID FROM booking WHERE RideID = $r_id AND BookingStatus IN ('Pending', 'Confirmed', 'Paid')";
+                        $bookings_res = $conn->query($bookings_query);
+
+                        while ($b = $bookings_res->fetch_assoc()) {
+                            // Hantar notifikasi kepada passenger
+                            $msg = "URGENT: Your ride from {$ride['FromLocation']} to {$ride['ToLocation']} on " . date('d M Y', strtotime($ride['RideDate'])) . " has been CANCELLED because the driver account was removed by Admin.";
+                            $notif_sql = "INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt) VALUES (?, 'Ride Cancelled (Admin)', ?, 'error', NOW())";
+                            $n_stmt = $conn->prepare($notif_sql);
+                            $n_stmt->bind_param("is", $b['UserID'], $msg);
+                            $n_stmt->execute();
+                            $n_stmt->close();
+                        }
+                    }
+                }
+
+                // 3. Padam data berkaitan (Ikut urutan constraint DB)
+                if (!empty($ride_ids)) {
+                    $ids_string = implode(',', $ride_ids);
+
+                    // A. Padam Booking dulu (Sebab booking refer ke rides)
+                    $conn->query("DELETE FROM booking WHERE RideID IN ($ids_string)");
+
+                    // B. Padam Rides (Sebab rides refer ke driver)
+                    $conn->query("DELETE FROM rides WHERE DriverID = $driver_id");
+                }
+
+                // 4. Notify Driver
+                $driver_info = $conn->query("SELECT UserID FROM driver WHERE DriverID = $driver_id")->fetch_assoc();
+                if ($driver_info) {
+                    $conn->query("INSERT INTO notifications (UserID, Title, Message, Type, CreatedAt) VALUES ({$driver_info['UserID']}, 'Driver Access Revoked', 'Your driver privileges have been revoked by the administrator.', 'error', NOW())");
+                }
+
+                // 5. Akhir sekali, Padam Driver (Jadikan dia passenger balik)
+                $stmt = $conn->prepare("DELETE FROM driver WHERE DriverID = ?");
+                $stmt->bind_param("i", $driver_id);
+                $stmt->execute();
+                $stmt->close();
+
+                $conn->commit();
+                $message = "Driver access revoked successfully. All associated rides and bookings have been removed.";
+                $type = "success";
+                $result = true;
+            } catch (Exception $e) {
+                $conn->rollback();
+                $result = false;
+                $message = "Error revoking driver: " . $e->getMessage();
+                $type = "error";
+            }
         }
 
+        // Redirect with message
         if ($result) {
             $_SESSION['notification'] = [
                 'message' => $message,
                 'type' => $type
+            ];
+        } elseif (!empty($message) && $type === 'error') {
+            $_SESSION['notification'] = [
+                'message' => $message,
+                'type' => 'error'
             ];
         }
 
@@ -101,14 +181,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // 1. Dapatkan Filter Status dari URL
 $filter_status = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 
-// Validasi filter supaya user tak letak benda pelik
+// Validasi filter
 $allowed_filters = ['pending', 'approved', 'rejected'];
 if (!in_array($filter_status, $allowed_filters)) {
     $filter_status = 'all';
 }
 
 // 2. Set WHERE Clause berdasarkan filter
-$where_clause = "WHERE 1=1"; // Default select semua
+$where_clause = "WHERE 1=1";
 if ($filter_status !== 'all') {
     $where_clause .= " AND d.Status = '$filter_status'";
 }
@@ -188,11 +268,6 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
 
 <body>
     <div class="admin-container">
-        <!-- Include Sidebar from admindashboard -->
-        <?php
-        // We'll include just the sidebar structure without the full dashboard
-        // Let's create a simplified sidebar include
-        ?>
         <aside class="admin-sidebar">
             <div class="sidebar-header">
                 <div class="admin-avatar">
@@ -246,9 +321,7 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <div class="admin-main">
-            <!-- Header -->
             <header class="admin-header">
                 <div class="header-content">
                     <button id="sidebarToggle" class="sidebar-toggle">
@@ -271,23 +344,10 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                 </div>
             </header>
 
-            <!-- Driver Management Content -->
             <main class="dashboard-content">
-                <!-- Stats Overview -->
                 <section class="stats-section">
                     <h2><i class="fa-solid fa-id-card"></i> Driver Management</h2>
                     <div class="stats-grid">
-                        <!-- <div class="stat-card">
-                            <div class="stat-icon total">
-                                <i class="fa-solid fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>Total Drivers</h3>
-                                <span class="stat-number"><?php echo $total_drivers; ?></span>
-                                <span class="stat-change">All registered drivers</span>
-                            </div>
-                        </div> -->
-
                         <div class="stat-card">
                             <div class="stat-icon pending">
                                 <i class="fa-solid fa-clock"></i>
@@ -323,7 +383,6 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                     </div>
                 </section>
 
-                <!-- Driver List -->
                 <section class="drivers-section">
                     <div class="section-header">
                         <h3><i class="fa-solid fa-list"></i> All Driver Applications</h3>
@@ -372,18 +431,10 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                                                     </div>
                                                     <div class="driver-details">
                                                         <h4><?php echo htmlspecialchars($driver['FullName']); ?></h4>
-                                                        <p>
-                                                            <i class="fa-solid fa-id-card"></i> <?php echo htmlspecialchars($driver['MatricNo']); ?>
-                                                        </p>
-                                                        <p>
-                                                            <i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($driver['Email']); ?>
-                                                        </p>
-                                                        <p>
-                                                            <i class="fa-solid fa-phone"></i> <?php echo htmlspecialchars($driver['PhoneNumber']); ?>
-                                                        </p>
-                                                        <p>
-                                                            <i class="fa-solid fa-graduation-cap"></i> <?php echo htmlspecialchars($driver['Faculty']); ?>
-                                                        </p>
+                                                        <p><i class="fa-solid fa-id-card"></i> <?php echo htmlspecialchars($driver['MatricNo']); ?></p>
+                                                        <p><i class="fa-solid fa-envelope"></i> <?php echo htmlspecialchars($driver['Email']); ?></p>
+                                                        <p><i class="fa-solid fa-phone"></i> <?php echo htmlspecialchars($driver['PhoneNumber']); ?></p>
+                                                        <p><i class="fa-solid fa-graduation-cap"></i> <?php echo htmlspecialchars($driver['Faculty']); ?></p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -451,15 +502,7 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                                                         <button class="action-btn revoke-btn" data-id="<?php echo $driver['DriverID']; ?>">
                                                             <i class="fa-solid fa-ban"></i> Revoke
                                                         </button>
-                                                    <?php elseif ($driver['Status'] === 'rejected'): ?>
-                                                        <!-- <button class="action-btn review-btn" data-id="<?php echo $driver['DriverID']; ?>">
-                                                            <i class="fa-solid fa-eye"></i> Review
-                                                        </button> -->
                                                     <?php endif; ?>
-
-                                                    <!-- <button class="action-btn view-btn" data-id="<?php echo $driver['DriverID']; ?>">
-                                                        <i class="fa-solid fa-eye"></i> View
-                                                    </button> -->
                                                 </div>
                                             </td>
                                         </tr>
@@ -478,7 +521,6 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                         </table>
                         <div class="pagination">
                             <?php
-                            // Function helper untuk URL (supaya tak hilang filter lain jika ada)
                             if (!function_exists('build_url')) {
                                 function build_url($page)
                                 {
@@ -516,7 +558,6 @@ $recent_pending = $conn->query("SELECT COUNT(*) as count FROM driver WHERE Statu
                     </div>
                 </section>
 
-                <!-- Action Modal -->
                 <div id="actionModal" class="modal">
                     <div class="modal-content">
                         <div class="modal-header">

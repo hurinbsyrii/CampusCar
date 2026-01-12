@@ -322,7 +322,74 @@ $payment_method = isset($_GET['payment_method']) ? $conn->real_escape_string($_G
 $min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : '';
 $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
 
-// Build query with joins (existing code remains the same)
+// --- MULA LOGIC FILTER & PAGINATION ---
+
+// 1. Bina WHERE Clause (Simpan dalam array supaya kemas)
+$where_clauses = ["1=1"];
+
+if (!empty($search_term)) {
+    $where_clauses[] = "(u.FullName LIKE '%$search_term%' 
+                        OR u.MatricNo LIKE '%$search_term%'
+                        OR r.FromLocation LIKE '%$search_term%'
+                        OR r.ToLocation LIKE '%$search_term%'
+                        OR d.FullName LIKE '%$search_term%')";
+}
+
+if (!empty($status_filter)) {
+    $where_clauses[] = "b.BookingStatus = '$status_filter'";
+}
+
+if (!empty($date_from)) {
+    $where_clauses[] = "DATE(b.BookingDateTime) >= '$date_from'";
+}
+
+if (!empty($date_to)) {
+    $where_clauses[] = "DATE(b.BookingDateTime) <= '$date_to'";
+}
+
+if (!empty($payment_method)) {
+    $where_clauses[] = "p.PaymentMethod = '$payment_method'";
+}
+
+if (!empty($min_price) && is_numeric($min_price)) {
+    $where_clauses[] = "b.TotalPrice >= $min_price";
+}
+
+if (!empty($max_price) && is_numeric($max_price)) {
+    $where_clauses[] = "b.TotalPrice <= $max_price";
+}
+
+// Gabungkan semua syarat
+$where_sql = implode(' AND ', $where_clauses);
+
+// 2. Setting Pagination
+$results_per_page = 15; // Paparkan 15 booking per page (Sama macam driver)
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$page_first_result = ($page - 1) * $results_per_page;
+
+// 3. Kira TOTAL Data (Untuk tahu jumlah page)
+// Kita perlu JOIN table lain juga sebab filter mungkin guna column dari table user/rides
+$count_sql = "SELECT COUNT(*) as total 
+              FROM booking b
+              LEFT JOIN user u ON b.UserID = u.UserID
+              LEFT JOIN rides r ON b.RideID = r.RideID
+              LEFT JOIN driver dr ON r.DriverID = dr.DriverID
+              LEFT JOIN user d ON dr.UserID = d.UserID
+              LEFT JOIN payments p ON b.BookingID = p.BookingID
+              WHERE $where_sql";
+
+$count_result = $conn->query($count_sql);
+$total_records = $count_result->fetch_assoc()['total'];
+$number_of_pages = ceil($total_records / $results_per_page);
+
+// Validation Page
+if ($page > $number_of_pages && $number_of_pages > 0) {
+    $page = $number_of_pages;
+    $page_first_result = ($page - 1) * $results_per_page;
+}
+
+// 4. Main Query dengan LIMIT
 $sql = "SELECT 
     b.*,
     u.FullName as UserName,
@@ -350,43 +417,13 @@ $sql = "SELECT
     LEFT JOIN user d ON dr.UserID = d.UserID
     LEFT JOIN payments p ON b.BookingID = p.BookingID
     LEFT JOIN driver_earnings de ON b.BookingID = de.BookingID
-    WHERE 1=1";
-
-if (!empty($search_term)) {
-    $sql .= " AND (u.FullName LIKE '%$search_term%' 
-                  OR u.MatricNo LIKE '%$search_term%'
-                  OR r.FromLocation LIKE '%$search_term%'
-                  OR r.ToLocation LIKE '%$search_term%'
-                  OR d.FullName LIKE '%$search_term%')";
-}
-
-if (!empty($status_filter)) {
-    $sql .= " AND b.BookingStatus = '$status_filter'";
-}
-
-if (!empty($date_from)) {
-    $sql .= " AND DATE(b.BookingDateTime) >= '$date_from'";
-}
-
-if (!empty($date_to)) {
-    $sql .= " AND DATE(b.BookingDateTime) <= '$date_to'";
-}
-
-if (!empty($payment_method)) {
-    $sql .= " AND p.PaymentMethod = '$payment_method'";
-}
-
-if (!empty($min_price) && is_numeric($min_price)) {
-    $sql .= " AND b.TotalPrice >= $min_price";
-}
-
-if (!empty($max_price) && is_numeric($max_price)) {
-    $sql .= " AND b.TotalPrice <= $max_price";
-}
-
-$sql .= " ORDER BY b.BookingDateTime DESC";
+    WHERE $where_sql
+    ORDER BY b.BookingDateTime DESC
+    LIMIT $page_first_result, $results_per_page";
 
 $result = $conn->query($sql);
+
+// --- TAMAT LOGIC FILTER & PAGINATION ---
 
 // Get statistics (existing code remains the same)
 $total_bookings = $conn->query("SELECT COUNT(*) as count FROM booking")->fetch_assoc()['count'];
@@ -920,10 +957,10 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                                                             RM <?php echo number_format($booking['DriverEarnings'], 2); ?>
                                                         </p>
                                                         <?php if (!empty($booking['DriverPaymentDate'])): ?>
-                                                            <p>
+                                                            <!-- <p>
                                                                 <strong>Paid on:</strong>
                                                                 <?php echo date('M d, Y H:i', strtotime($booking['DriverPaymentDate'])); ?>
-                                                            </p>
+                                                            </p> -->
                                                         <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
@@ -969,13 +1006,41 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                         </table>
 
                         <div class="pagination">
-                            <button class="pagination-btn disabled">
-                                <i class="fa-solid fa-chevron-left"></i> Previous
-                            </button>
-                            <span class="page-info">Page 1 of 1</span>
-                            <button class="pagination-btn disabled">
-                                Next <i class="fa-solid fa-chevron-right"></i>
-                            </button>
+                            <?php
+                            // Helper function untuk kekalkan filter dalam URL
+                            if (!function_exists('build_url')) {
+                                function build_url($page)
+                                {
+                                    $params = $_GET;
+                                    $params['page'] = $page;
+                                    return '?' . http_build_query($params);
+                                }
+                            }
+                            ?>
+
+                            <?php if ($page > 1): ?>
+                                <a href="<?php echo build_url($page - 1); ?>" class="pagination-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    <i class="fa-solid fa-chevron-left"></i> Previous
+                                </button>
+                            <?php endif; ?>
+
+                            <span class="page-info">
+                                Page <?php echo $page; ?> of <?php echo ($number_of_pages > 0) ? $number_of_pages : 1; ?>
+                            </span>
+
+                            <?php if ($page < $number_of_pages): ?>
+                                <a href="<?php echo build_url($page + 1); ?>" class="pagination-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                            <?php else: ?>
+                                <button class="pagination-btn disabled" disabled>
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </section>

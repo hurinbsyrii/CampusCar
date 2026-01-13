@@ -124,9 +124,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $conn->query("DELETE FROM driver WHERE DriverID = $driver_id");
                 }
 
+                // ... (Previous code for A. Driver handling remains above) ...
+
                 // B. Handle Jika User Adalah PASSENGER
+
+                // --- STEP 1: Restore Available Seats for Confirmed Bookings ---
+                // Cari booking yang statusnya 'Confirmed' sebelum didelete
+                $check_seats_sql = "SELECT RideID FROM booking WHERE UserID = $user_id AND BookingStatus = 'Confirmed'";
+                $confirmed_bookings = $conn->query($check_seats_sql);
+
+                if ($confirmed_bookings->num_rows > 0) {
+                    // Prepare statement untuk update seat
+                    $update_seat_stmt = $conn->prepare("UPDATE rides SET AvailableSeats = AvailableSeats + 1 WHERE RideID = ?");
+
+                    while ($row = $confirmed_bookings->fetch_assoc()) {
+                        $ride_id_to_update = $row['RideID'];
+                        // Tambah balik seat (+1)
+                        $update_seat_stmt->bind_param("i", $ride_id_to_update);
+                        $update_seat_stmt->execute();
+                    }
+                    $update_seat_stmt->close();
+                }
+
+                // --- STEP 2: Delete Data ---
                 $conn->query("DELETE FROM payments WHERE UserID = $user_id");
-                $conn->query("DELETE FROM booking WHERE UserID = $user_id");
+                $conn->query("DELETE FROM booking WHERE UserID = $user_id"); // Booking deleted after seats returned
                 $conn->query("DELETE FROM notifications WHERE UserID = $user_id");
                 $conn->query("DELETE FROM password_reset WHERE UserID = $user_id");
                 $conn->query("DELETE FROM reviews WHERE UserID = $user_id");
@@ -138,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $conn->commit();
 
+                // ... (Rest of code) ...
                 $_SESSION['notification'] = [
                     'message' => "User deleted successfully. Active rides/bookings were cancelled and notifications sent.",
                     'type' => 'success'

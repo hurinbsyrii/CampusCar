@@ -576,9 +576,9 @@ while ($row = $payment_methods_result->fetch_assoc()) {
                             <span class="stat-badge">
                                 <i class="fa-solid fa-ticket"></i> <?php echo $total_bookings; ?> total
                             </span>
-                            <span class="stat-badge">
+                            <!-- <span class="stat-badge">
                                 <i class="fa-solid fa-money-bill-wave"></i> RM <?php echo number_format($today_revenue, 2); ?> today
-                            </span>
+                            </span> -->
                         </div>
                     </div>
                 </div>

@@ -432,9 +432,9 @@ function exportRidesToCSV($conn)
                             <span class="stat-badge">
                                 <i class="fa-solid fa-car"></i> <?php echo $available_rides; ?> available
                             </span>
-                            <span class="stat-badge">
+                            <!-- <span class="stat-badge">
                                 <i class="fa-solid fa-money-bill-wave"></i> RM <?php echo number_format($today_revenue, 2); ?> today
-                            </span>
+                            </span> -->
                         </div>
                     </div>
                 </div>
@@ -572,7 +572,7 @@ function exportRidesToCSV($conn)
                                 <tr>
                                     <th>Ride Details</th>
                                     <th>Driver & Vehicle</th>
-                                    <th>Booking Stats</th>
+                                    <!-- <th>Booking Stats</th> -->
                                     <!-- <th>Date & Time</th> -->
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -661,34 +661,8 @@ function exportRidesToCSV($conn)
                                                         <p class="no-data">Driver not found</p>
                                                     <?php endif; ?>
                                                 </div>
-                                            </td>
-                                            <td>
-                                                <div class="stats-info">
-                                                    <p>
-                                                        <strong>Bookings:</strong>
-                                                        <span class="stat-value"><?php echo $ride['TotalBookings']; ?></span>
-                                                    </p>
-                                                    <p>
-                                                        <strong>Revenue:</strong>
-                                                        <span class="stat-value revenue">RM <?php echo number_format($ride['TotalEarnings'], 2); ?></span>
-                                                    </p>
-                                                    <p>
-                                                        <strong>Seats Sold:</strong>
-                                                        <span class="stat-value">
-                                                            <?php
-                                                            // Get actual seats taken from the database query
-                                                            $seats_sold = $ride['SeatsTaken'];
 
-                                                            // Calculate total capacity dynamically (Available + Taken)
-                                                            $total_capacity = $ride['AvailableSeats'] + $seats_sold;
-
-                                                            echo $seats_sold . '/' . $total_capacity;
-                                                            ?>
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <!-- <td>
+                                                <!-- <td>
                                                 <div class="datetime-info">
                                                     <p class="date">
                                                         <i class="fa-solid fa-calendar"></i>
